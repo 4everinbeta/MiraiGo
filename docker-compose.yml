@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: miraigo-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-miraigo}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: miraigo-redis
+    ports:
+      - "6379:6379"
+
+  app:
+    build: .
+    container_name: miraigo-app
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_SERVER: db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-miraigo}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    restart: always
+
+volumes:
+  postgres_data:
