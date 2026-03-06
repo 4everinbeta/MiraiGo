@@ -30,7 +30,7 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch }) => {
               placeholder="Where do you want to go? Type naturally..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 border-none shadow-none focus-visible:ring-0 text-lg py-8 placeholder:text-muted-foreground/50 placeholder:font-light font-light"
+              className="flex-1 border-none shadow-none focus-visible:ring-1 focus-visible:ring-primary/20 text-lg py-8 placeholder:text-muted-foreground/50 placeholder:font-light font-light"
             />
             <Button 
               type="submit" 
