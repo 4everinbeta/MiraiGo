@@ -51,7 +51,7 @@ export default function Home() {
           />
         </section>
         
-        <footer className="text-center text-[10px] text-muted-foreground/40 uppercase tracking-[0.3em] pt-10 border-t border-border/50">
+        <footer className="text-center text-[10px] text-muted-foreground uppercase tracking-[0.3em] pt-10 border-t border-border/50">
           Built for the future of travel.
         </footer>
       </div>

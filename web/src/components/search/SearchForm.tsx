@@ -40,7 +40,7 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch }) => {
             </Button>
           </div>
           <div className="bg-sakura/10 px-6 py-2 flex justify-between items-center border-t border-sakura/20">
-            <span className="text-[10px] text-primary/60 uppercase tracking-wider font-medium">
+            <span className="text-[10px] text-primary uppercase tracking-wider font-medium">
               Flexible Search Enabled
             </span>
             <div className="flex gap-4">
