@@ -15,48 +15,50 @@ interface ResultsDashboardProps {
 const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ results, isLoading }) => {
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-2"></div>
-        <span>Searching for the best options...</span>
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <div className="w-12 h-[1px] bg-primary animate-pulse" />
+        <span className="text-[10px] uppercase tracking-[0.4em] text-primary/60 font-light">Seeking the future...</span>
       </div>
     )
   }
 
   if (results.length === 0) {
-    return (
-      <Card className="w-full max-w-2xl mx-auto mt-8">
-        <CardContent className="py-12 text-center text-muted-foreground">
-          No results found. Try a different search!
-        </CardContent>
-      </Card>
-    )
+    return null
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto mt-8 flex flex-col gap-4">
-      <h2 className="text-xl font-bold px-2">Top Results</h2>
-      {results.map((result, index) => (
-        <Card key={index} className="overflow-hidden">
-          <div className="flex items-stretch">
-            <div className="w-2 bg-primary"></div>
-            <div className="flex-1">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                    {result.provider}
-                  </CardTitle>
-                  <div className="bg-primary/10 text-primary text-xs font-bold px-2 py-1 rounded">
-                    Match: {result.score}
+    <div className="w-full max-w-2xl mx-auto mt-12 flex flex-col gap-8">
+      <div className="flex items-center gap-4 px-2">
+        <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-sumi">Refined Options</h2>
+        <div className="flex-1 h-[1px] bg-border/50" />
+      </div>
+      
+      <div className="flex flex-col gap-6">
+        {results.map((result, index) => (
+          <Card key={index} className="rounded-none border-none border-l border-primary/10 bg-transparent hover:bg-sakura/5 transition-colors group">
+            <div className="flex items-stretch">
+              <div className="w-[1px] bg-transparent group-hover:bg-primary transition-all duration-500" />
+              <div className="flex-1 py-4">
+                <CardHeader className="pb-2 pt-0 px-6">
+                  <div className="flex justify-between items-end">
+                    <CardTitle className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">
+                      {result.provider}
+                    </CardTitle>
+                    <div className="text-[10px] font-light text-muted-foreground tabular-nums">
+                      Score // <span className="text-sumi font-medium">{result.score}</span>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-relaxed">{result.text}</p>
-              </CardContent>
+                </CardHeader>
+                <CardContent className="px-6">
+                  <p className="text-sm font-light leading-relaxed text-sumi/80 group-hover:text-sumi transition-colors">
+                    {result.text}
+                  </p>
+                </CardContent>
+              </div>
             </div>
-          </div>
-        </Card>
-      ))}
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }

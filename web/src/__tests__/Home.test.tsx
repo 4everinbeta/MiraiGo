@@ -10,8 +10,8 @@ describe('Home Page Integration', () => {
   it('renders initial state', () => {
     mockedUseSWR.mockReturnValue({ data: null, error: null, isLoading: false })
     render(<Home />)
-    expect(screen.getByText(/MiraiGo/i)).toBeInTheDocument()
-    expect(screen.getByPlaceholderText(/search your dream trip/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Mirai/i).length).toBeGreaterThan(0)
+    expect(screen.getByPlaceholderText(/where do you want to go/i)).toBeInTheDocument()
   })
 
   it('performs search and displays results', async () => {
@@ -26,7 +26,7 @@ describe('Home Page Integration', () => {
     
     const { rerender } = render(<Home />)
     
-    const input = screen.getByPlaceholderText(/search your dream trip/i)
+    const input = screen.getByPlaceholderText(/where do you want to go/i)
     const button = screen.getByRole('button', { name: /search/i })
 
     // Simulate user typing and clicking search

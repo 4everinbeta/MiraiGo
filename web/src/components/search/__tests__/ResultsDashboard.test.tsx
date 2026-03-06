@@ -17,11 +17,11 @@ describe('ResultsDashboard', () => {
 
   it('shows loading state', () => {
     render(<ResultsDashboard results={[]} isLoading={true} />)
-    expect(screen.getByText(/searching/i)).toBeInTheDocument()
+    expect(screen.getByText(/seeking the future/i)).toBeInTheDocument()
   })
 
-  it('shows empty state when no results', () => {
-    render(<ResultsDashboard results={[]} isLoading={false} />)
-    expect(screen.getByText(/no results found/i)).toBeInTheDocument()
+  it('does not render when no results and not loading', () => {
+    const { container } = render(<ResultsDashboard results={[]} isLoading={false} />)
+    expect(container.firstChild).toBeNull()
   })
 })
