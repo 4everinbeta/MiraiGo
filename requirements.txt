@@ -12,3 +12,4 @@ python-multipart
 alembic
 beautifulsoup4
 lxml
+cryptography

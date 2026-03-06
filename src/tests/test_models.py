@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 from src.app.models.user import User
+# Need to import these so SQLAlchemy knows about them for relationships
+from src.app.models.search import SearchHistory, UserPreference
 
 def test_user_model_creation():
     user = User(

@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy.orm import relationship
 from src.app.models.base import Base
 
 class User(Base):
@@ -10,3 +11,6 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean(), default=True)
     is_superuser = Column(Boolean(), default=False)
+    
+    search_histories = relationship("SearchHistory", back_populates="user")
+    preference = relationship("UserPreference", back_populates="user", uselist=False)
