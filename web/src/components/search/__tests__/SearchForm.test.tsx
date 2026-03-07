@@ -18,6 +18,30 @@ describe('SearchForm', () => {
     fireEvent.change(input, { target: { value: 'Miami' } })
     fireEvent.click(button)
 
-    expect(mockSearch).toHaveBeenCalledWith({ q: 'Miami' })
+    expect(mockSearch).toHaveBeenCalledWith({ 
+      q: 'Miami',
+      date: undefined,
+      qualities: []
+    })
+  })
+
+  it('toggles date picker visibility when Add Dates is clicked', () => {
+    render(<SearchForm onSearch={jest.fn()} />)
+    const addDatesBtn = screen.getByRole('button', { name: /add dates/i })
+    
+    expect(screen.queryByText(/preferred date/i)).not.toBeInTheDocument()
+    
+    fireEvent.click(addDatesBtn)
+    expect(screen.getByText(/preferred date/i)).toBeInTheDocument()
+  })
+
+  it('toggles qualities visibility when Qualities is clicked', () => {
+    render(<SearchForm onSearch={jest.fn()} />)
+    const qualitiesBtn = screen.getByRole('button', { name: /qualities/i })
+    
+    expect(screen.queryByText(/desired qualities/i)).not.toBeInTheDocument()
+    
+    fireEvent.click(qualitiesBtn)
+    expect(screen.getByText(/desired qualities/i)).toBeInTheDocument()
   })
 })

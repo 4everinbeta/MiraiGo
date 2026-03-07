@@ -4,18 +4,40 @@ import React, { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Search } from 'lucide-react'
+import { Search, Calendar as CalendarIcon, Tag, X } from 'lucide-react'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
+import { format } from 'date-fns'
 
 interface SearchFormProps {
-  onSearch: (params: { q: string }) => void
+  onSearch: (params: { q: string; date?: Date; qualities?: string[] }) => void
 }
+
+const AVAILABLE_QUALITIES = ["Beach", "Mountains", "Luxury", "Budget", "Family", "Romantic", "Quiet", "Hiking", "Skiing"]
 
 const SearchForm: React.FC<SearchFormProps> = ({ onSearch }) => {
   const [query, setQuery] = useState('')
+  const [showDates, setShowDates] = useState(false)
+  const [showQualities, setShowQualities] = useState(false)
+  const [date, setDate] = useState<Date | undefined>(undefined)
+  const [selectedQualities, setSelectedQualities] = useState<string[]>([])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSearch({ q: query })
+    onSearch({ 
+      q: query,
+      date: date,
+      qualities: selectedQualities
+    })
+  }
+
+  const toggleQuality = (quality: string) => {
+    setSelectedQualities(prev => 
+      prev.includes(quality) 
+        ? prev.filter(q => q !== quality) 
+        : [...prev, quality]
+    )
   }
 
   return (
@@ -39,14 +61,95 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch }) => {
               Search
             </Button>
           </div>
+
+          {(showDates || showQualities) && (
+            <div className="bg-white border-t border-border p-6 space-y-6 animate-in fade-in slide-in-from-top-2">
+              {showDates && (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-primary/60">Preferred Date</label>
+                    {date && (
+                      <button type="button" onClick={() => setDate(undefined)} className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1">
+                        <X size={10} /> Clear
+                      </button>
+                    )}
+                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal rounded-none border-border hover:bg-sakura/5",
+                          !date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(date, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-none border-border" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+              
+              {showQualities && (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-primary/60">Desired Qualities</label>
+                    {selectedQualities.length > 0 && (
+                      <button type="button" onClick={() => setSelectedQualities([])} className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1">
+                        <X size={10} /> Clear All
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_QUALITIES.map(q => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => toggleQuality(q)}
+                        className={cn(
+                          "px-4 py-1.5 text-[10px] uppercase tracking-tighter rounded-full border transition-all",
+                          selectedQualities.includes(q)
+                            ? "bg-primary text-primary-foreground border-primary shadow-md"
+                            : "bg-muted text-muted-foreground border-border hover:bg-sakura/20 hover:border-sakura/40"
+                        )}
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="bg-sakura/10 px-6 py-2 flex justify-between items-center border-t border-sakura/20">
             <span className="text-[10px] text-primary uppercase tracking-wider font-medium">
               Flexible Search Enabled
             </span>
             <div className="flex gap-4">
-               {/* Placeholders for future fields */}
-               <button type="button" className="text-[10px] text-muted-foreground hover:text-primary transition-colors uppercase tracking-wider">Add Dates</button>
-               <button type="button" className="text-[10px] text-muted-foreground hover:text-primary transition-colors uppercase tracking-wider">Qualities</button>
+               <button 
+                type="button" 
+                onClick={() => setShowDates(!showDates)}
+                className={cn("text-[10px] uppercase tracking-wider transition-colors", showDates ? "text-primary font-bold" : "text-muted-foreground hover:text-primary")}
+               >
+                {date ? format(date, "MMM dd") : "Add Dates"}
+               </button>
+               <button 
+                type="button" 
+                onClick={() => setShowQualities(!showQualities)}
+                className={cn("text-[10px] uppercase tracking-wider transition-colors", showQualities ? "text-primary font-bold" : "text-muted-foreground hover:text-primary")}
+               >
+                {selectedQualities.length > 0 ? `${selectedQualities.length} Qualities` : "Qualities"}
+               </button>
             </div>
           </div>
         </form>
