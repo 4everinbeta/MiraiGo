@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 QUALITIES = [
     "warm", "beach", "mountains", "mountain", "amusement parks", "family friendly",
@@ -52,10 +52,32 @@ def extract_intent(query: str) -> Dict[str, Any]:
     for date in DATES:
         if date.lower() in query_lower:
             found_dates.append(date)
+
+    # Date Range Extraction
+    date_range = None
+    # from [start] to [end]
+    # We look for keywords that might follow a date range to avoid over-capturing
+    stop_keywords = r'with|in|near|at|searching|looking|for'
+    
+    from_to_match = re.search(fr'from\s+(.+?)\s+to\s+(.+?)(?:\s+(?:{stop_keywords})|$)', query, re.IGNORECASE)
+    if from_to_match:
+        date_range = {
+            "start": from_to_match.group(1).strip(),
+            "end": from_to_match.group(2).strip()
+        }
+    else:
+        # between [start] and [end]
+        between_and_match = re.search(fr'between\s+(.+?)\s+and\s+(.+?)(?:\s+(?:{stop_keywords})|$)', query, re.IGNORECASE)
+        if between_and_match:
+            date_range = {
+                "start": between_and_match.group(1).strip(),
+                "end": between_and_match.group(2).strip()
+            }
             
     return {
         "location": location,
         "qualities": found_qualities,
         "dates": found_dates,
+        "date_range": date_range,
         "original_query": query
     }
