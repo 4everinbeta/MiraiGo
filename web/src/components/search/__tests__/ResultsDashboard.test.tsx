@@ -15,9 +15,27 @@ describe('ResultsDashboard', () => {
     expect(screen.getByText('Booking.com')).toBeInTheDocument()
   })
 
-  it('shows loading state', () => {
+  it('renders cards as external links when link is provided', () => {
+    const resultsWithLink = [{ provider: 'Expedia', text: 'Hotel A', score: 10, link: 'https://expedia.com/test' }]
+    render(<ResultsDashboard results={resultsWithLink} isLoading={false} />)
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', 'https://expedia.com/test')
+    expect(link).toHaveAttribute('target', '_blank')
+  })
+
+  it('shows loading skeletons when isLoading is true', () => {
     render(<ResultsDashboard results={[]} isLoading={true} />)
+    // Looking for skeleton containers (assuming we use a specific class or role)
     expect(screen.getByText(/seeking the future/i)).toBeInTheDocument()
+    const skeletons = screen.getAllByTestId('loading-skeleton')
+    expect(skeletons.length).toBeGreaterThan(0)
+  })
+
+  it('shows progress for providers during loading', () => {
+    render(<ResultsDashboard results={[]} isLoading={true} />)
+    expect(screen.getByText(/Expedia/i)).toBeInTheDocument()
+    expect(screen.getByText(/Booking.com/i)).toBeInTheDocument()
+    expect(screen.getByText(/Airbnb/i)).toBeInTheDocument()
   })
 
   it('does not render when no results and not loading', () => {
