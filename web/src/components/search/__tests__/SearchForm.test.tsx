@@ -29,10 +29,10 @@ describe('SearchForm', () => {
     render(<SearchForm onSearch={jest.fn()} />)
     const addDatesBtn = screen.getByRole('button', { name: /add dates/i })
     
-    expect(screen.queryByText(/preferred date/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/date range/i)).not.toBeInTheDocument()
     
     fireEvent.click(addDatesBtn)
-    expect(screen.getByText(/preferred date/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/date range/i).length).toBeGreaterThan(0)
   })
 
   it('toggles qualities visibility when Qualities is clicked', () => {

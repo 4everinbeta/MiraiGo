@@ -9,9 +9,10 @@ import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
+import { DateRange } from 'react-day-picker'
 
 interface SearchFormProps {
-  onSearch: (params: { q: string; date?: Date; qualities?: string[] }) => void
+  onSearch: (params: { q: string; dateRange?: DateRange; qualities?: string[] }) => void
 }
 
 const AVAILABLE_QUALITIES = ["Beach", "Mountains", "Luxury", "Budget", "Family", "Romantic", "Quiet", "Hiking", "Skiing"]
@@ -20,14 +21,14 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch }) => {
   const [query, setQuery] = useState('')
   const [showDates, setShowDates] = useState(false)
   const [showQualities, setShowQualities] = useState(false)
-  const [date, setDate] = useState<Date | undefined>(undefined)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [selectedQualities, setSelectedQualities] = useState<string[]>([])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSearch({ 
       q: query,
-      date: date,
+      dateRange: dateRange,
       qualities: selectedQualities
     })
   }
@@ -67,9 +68,9 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch }) => {
               {showDates && (
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-primary/60">Preferred Date</label>
-                    {date && (
-                      <button type="button" onClick={() => setDate(undefined)} className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-primary/60">Date Range</label>
+                    {dateRange && (
+                      <button type="button" onClick={() => setDateRange(undefined)} className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1">
                         <X size={10} /> Clear
                       </button>
                     )}
@@ -77,22 +78,36 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch }) => {
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
+                        id="date"
                         variant={"outline"}
                         className={cn(
                           "w-full justify-start text-left font-normal rounded-none border-border hover:bg-sakura/5",
-                          !date && "text-muted-foreground"
+                          !dateRange && "text-muted-foreground"
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP") : <span>Pick a date</span>}
+                        {dateRange?.from ? (
+                          dateRange.to ? (
+                            <>
+                              {format(dateRange.from, "LLL dd, y")} -{" "}
+                              {format(dateRange.to, "LLL dd, y")}
+                            </>
+                          ) : (
+                            format(dateRange.from, "LLL dd, y")
+                          )
+                        ) : (
+                          <span>Pick a date range</span>
+                        )}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0 rounded-none border-border" align="start">
                       <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={setDate}
                         initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from}
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        numberOfMonths={2}
                       />
                     </PopoverContent>
                   </Popover>
@@ -141,7 +156,9 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch }) => {
                 onClick={() => setShowDates(!showDates)}
                 className={cn("text-[10px] uppercase tracking-wider transition-colors", showDates ? "text-primary font-bold" : "text-muted-foreground hover:text-primary")}
                >
-                {date ? format(date, "MMM dd") : "Add Dates"}
+                {dateRange?.from ? (
+                  dateRange.to ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}` : format(dateRange.from, "MMM dd")
+                ) : "Add Dates"}
                </button>
                <button 
                 type="button" 
