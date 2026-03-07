@@ -10,7 +10,7 @@ async def test_booking_scrape_success():
     mock_response.text = "<html><body><div class='results'>Hotel in LON for $200</div></body></html>"
     with patch.object(BookingScraper, 'fetch', return_value=mock_response):
         result = await scraper.scrape("LON")
-        assert "LON" in result["results"][0]
+        assert "LON" in result["results"][0]["text"]
         assert result["provider"] == "Booking.com"
 
 @pytest.mark.asyncio
@@ -20,5 +20,5 @@ async def test_airbnb_scrape_success():
     mock_response.text = "<html><body><div class='results'>Apartment in PAR for $150</div></body></html>"
     with patch.object(AirbnbScraper, 'fetch', return_value=mock_response):
         result = await scraper.scrape("PAR")
-        assert "PAR" in result["results"][0]
+        assert "PAR" in result["results"][0]["text"]
         assert result["provider"] == "Airbnb"

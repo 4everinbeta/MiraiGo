@@ -24,6 +24,10 @@ COMMON_CITIES = [
     "Paris", "London", "Tokyo", "New York", "Miami", "Denver", "Rome", "Barcelona", "Berlin", "Dubai"
 ]
 
+NUMBER_MAP = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10
+}
+
 def extract_intent(query: str) -> Dict[str, Any]:
     query_lower = query.lower()
     
@@ -62,7 +66,6 @@ def extract_intent(query: str) -> Dict[str, Any]:
 
     # Date Range Extraction
     date_range = None
-    # from [start] to [end]
     stop_keywords = r'with|in|near|at|searching|looking|for'
     
     from_to_match = re.search(fr'from\s+(.+?)\s+to\s+(.+?)(?:\s+(?:{stop_keywords})|$)', query, re.IGNORECASE)
@@ -72,7 +75,6 @@ def extract_intent(query: str) -> Dict[str, Any]:
             "end": from_to_match.group(2).strip()
         }
     else:
-        # between [start] and [end]
         between_and_match = re.search(fr'between\s+(.+?)\s+and\s+(.+?)(?:\s+(?:{stop_keywords})|$)', query, re.IGNORECASE)
         if between_and_match:
             date_range = {
@@ -87,6 +89,26 @@ def extract_intent(query: str) -> Dict[str, Any]:
             if kw in query_lower:
                 found_modes.append(mode)
                 break
+
+    # Budget Extraction
+    budget = None
+    budget_match = re.search(r'(?:budget|max|maximum|up to)\s+(?:of\s+)?\$?(\d+)', query_lower)
+    if budget_match:
+        budget = float(budget_match.group(1))
+    elif "$" in query_lower:
+        money_match = re.search(r'\$(\d+)', query_lower)
+        if money_match:
+            budget = float(money_match.group(1))
+
+    # Duration Extraction
+    duration_days = None
+    duration_match = re.search(r'(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+day', query_lower)
+    if duration_match:
+        val = duration_match.group(1)
+        if val.isdigit():
+            duration_days = int(val)
+        else:
+            duration_days = NUMBER_MAP.get(val)
             
     return {
         "location": location,
@@ -94,5 +116,7 @@ def extract_intent(query: str) -> Dict[str, Any]:
         "dates": found_dates,
         "date_range": date_range,
         "modes": found_modes,
+        "budget": budget,
+        "duration_days": duration_days,
         "original_query": query
     }

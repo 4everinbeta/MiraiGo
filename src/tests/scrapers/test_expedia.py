@@ -10,5 +10,6 @@ async def test_expedia_scrape_success():
     
     with patch.object(ExpediaScraper, 'fetch', return_value=mock_response):
         result = await scraper.scrape("NYC to LON")
-        assert "NYC to LON" in result["results"][0]
+        assert "NYC to LON" in result["results"][0]["text"]
         assert result["provider"] == "Expedia"
+

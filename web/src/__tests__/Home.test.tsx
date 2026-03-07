@@ -40,7 +40,7 @@ describe('Home Page Integration', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Miami Beach Resort')).toBeInTheDocument()
-      expect(screen.getByText(/Expedia/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/Expedia/i).length).toBeGreaterThan(0)
     })
   })
 })

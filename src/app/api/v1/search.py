@@ -6,6 +6,8 @@ from src.app.nlp.intent import extract_intent
 from src.app.scrapers.expedia import ExpediaScraper
 from src.app.scrapers.booking import BookingScraper
 from src.app.scrapers.airbnb import AirbnbScraper
+from src.app.scrapers.amadeus import AmadeusClient
+from src.app.scrapers.niche_local import LocalNicheScraper
 from src.app.optimization.engine import rank_results
 from src.app.db.redis import redis_client
 
@@ -19,7 +21,7 @@ async def search(
     amenities: Optional[str] = Query(None, description="Comma-separated list of amenities"),
     modes: Optional[str] = Query(None, description="Comma-separated list of travel modes")
 ):
-    # 1. Check Cache (Simplified key for now, doesn't include all filters)
+    # 1. Check Cache
     cache_key = f"search:{q.lower().strip()}:{min_price}:{max_price}:{amenities}:{modes}"
     try:
         cached_results = redis_client.get(cache_key)
@@ -31,8 +33,17 @@ async def search(
     # 2. Extract Intent
     intent = extract_intent(q)
     
+    # Use NLP-extracted budget if no explicit filter provided
+    effective_max_price = max_price if max_price is not None else intent.get("budget")
+    
     # 3. Scrape from multiple providers in parallel
-    scrapers = [ExpediaScraper(), BookingScraper(), AirbnbScraper()]
+    scrapers = [
+        ExpediaScraper(), 
+        BookingScraper(), 
+        AirbnbScraper(),
+        AmadeusClient(),
+        LocalNicheScraper()
+    ]
     
     scraping_tasks = [scraper.scrape(intent["location"] or q) for scraper in scrapers]
     raw_results = await asyncio.gather(*scraping_tasks, return_exceptions=True)
@@ -57,15 +68,14 @@ async def search(
                         "price": item.get("price"),
                         "amenities": item.get("amenities", [])
                     }
-                    # Include other fields
                     result_item.update({k: v for k, v in item.items() if k not in ["text", "price", "amenities"]})
                 all_results.append(result_item)
 
     # 5. Apply Backend Filters
     filtered_results = all_results
     
-    if max_price is not None:
-        filtered_results = [r for r in filtered_results if r.get("price") is None or r.get("price") <= max_price]
+    if effective_max_price is not None:
+        filtered_results = [r for r in filtered_results if r.get("price") is None or r.get("price") <= effective_max_price]
     
     if min_price is not None:
         filtered_results = [r for r in filtered_results if r.get("price") is None or r.get("price") >= min_price]
@@ -86,7 +96,7 @@ async def search(
         "results": ranked_results
     }
 
-    # 7. Store in Cache (1 hour expiry)
+    # 7. Store in Cache
     try:
         redis_client.setex(cache_key, 3600, json.dumps(response_data))
     except Exception:
