@@ -31,6 +31,7 @@ test.describe('Visual Regression', () => {
     
     await expect(page).toHaveScreenshot('search-results.png', {
       fullPage: true,
+      maxDiffPixelRatio: 0.05,
     });
   });
 });

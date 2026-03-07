@@ -34,7 +34,7 @@ test.describe('Search Flow', () => {
     // 5. Verify results are displayed
     await expect(page.getByText(/refined options/i)).toBeVisible();
     await expect(page.getByText('Beautiful beach resort in Miami')).toBeVisible();
-    await expect(page.getByText('Expedia')).toBeVisible();
+    await expect(page.locator('[data-slot="card-title"]').filter({ hasText: /^Expedia$/ })).toBeVisible();
     await expect(page.getByText(/Score \/\/ 20/i)).toBeVisible();
 
     // 6. Accessibility audit on results page

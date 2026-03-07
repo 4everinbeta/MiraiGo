@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { CheckCircle2, Loader2, ExternalLink } from 'lucide-react'
+import { CheckCircle2, Loader2, ExternalLink, Filter } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface TravelResult {
   provider: string
@@ -15,12 +16,26 @@ interface ResultsDashboardProps {
 }
 
 const PROVIDERS = [
-  { id: 'expedia', name: 'Expedia' },
-  { id: 'booking', name: 'Booking.com' },
-  { id: 'airbnb', name: 'Airbnb' }
+  { id: 'Expedia', name: 'Expedia' },
+  { id: 'Booking.com', name: 'Booking.com' },
+  { id: 'Airbnb', name: 'Airbnb' }
 ]
 
 const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ results, isLoading }) => {
+  const [activeFilters, setActiveFilters] = useState<string[]>([])
+
+  const toggleFilter = (provider: string) => {
+    setActiveFilters(prev => 
+      prev.includes(provider) 
+        ? prev.filter(p => p !== provider) 
+        : [...prev, provider]
+    )
+  }
+
+  const filteredResults = activeFilters.length > 0
+    ? results.filter(r => activeFilters.includes(r.provider))
+    : results
+
   if (isLoading) {
     return (
       <div className="w-full max-w-2xl mx-auto space-y-12">
@@ -64,39 +79,71 @@ const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ results, isLoading 
 
   return (
     <div className="w-full max-w-2xl mx-auto mt-12 flex flex-col gap-8">
-      <div className="flex items-center gap-4 px-2">
-        <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-sumi">Refined Options</h2>
-        <div className="flex-1 h-[1px] bg-border/50" />
+      <div className="flex flex-col gap-4 px-2">
+        <div className="flex items-center gap-4">
+          <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-sumi">Refined Options</h2>
+          <div className="flex-1 h-[1px] bg-border/50" />
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <span className="text-[9px] uppercase tracking-widest font-bold text-muted-foreground flex items-center gap-1">
+            <Filter size={10} /> Filter By:
+          </span>
+          <div className="flex gap-2">
+            {PROVIDERS.map(p => (
+              <button
+                key={p.id}
+                onClick={() => toggleFilter(p.id)}
+                className={cn(
+                  "px-3 py-1 text-[9px] uppercase tracking-tighter border transition-all",
+                  activeFilters.includes(p.id)
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-transparent text-muted-foreground border-border hover:border-primary/40"
+                )}
+                aria-label={p.name}
+                aria-pressed={activeFilters.includes(p.id)}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       
       <div className="flex flex-col gap-6">
-        {results.map((result, index) => (
-          <CardWrapper key={index} result={result}>
-            <Card className="rounded-none border-none border-l border-primary/10 bg-transparent hover:bg-sakura/5 transition-all duration-300 relative">
-              <div className="flex items-stretch">
-                <div className="w-[1px] bg-transparent group-hover:bg-primary transition-all duration-500" />
-                <div className="flex-1 py-4">
-                  <CardHeader className="pb-2 pt-0 px-6">
-                    <div className="flex justify-between items-end">
-                      <CardTitle className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                        {result.provider}
-                        {result.link && <ExternalLink size={10} className="text-primary/40 group-hover:text-primary transition-colors" />}
-                      </CardTitle>
-                      <div className="text-[10px] font-light text-muted-foreground tabular-nums">
-                        Score // <span className="text-sumi font-medium">{result.score}</span>
+        {filteredResults.length > 0 ? (
+          filteredResults.map((result, index) => (
+            <CardWrapper key={index} result={result}>
+              <Card className="rounded-none border-none border-l border-primary/10 bg-transparent hover:bg-sakura/5 transition-all duration-300 relative">
+                <div className="flex items-stretch">
+                  <div className="w-[1px] bg-transparent group-hover:bg-primary transition-all duration-500" />
+                  <div className="flex-1 py-4">
+                    <CardHeader className="pb-2 pt-0 px-6">
+                      <div className="flex justify-between items-end">
+                        <CardTitle className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                          {result.provider}
+                          {result.link && <ExternalLink size={10} className="text-primary/40 group-hover:text-primary transition-colors" />}
+                        </CardTitle>
+                        <div className="text-[10px] font-light text-muted-foreground tabular-nums">
+                          Score // <span className="text-sumi font-medium">{result.score}</span>
+                        </div>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-6">
-                    <p className="text-sm font-light leading-relaxed text-sumi/80 group-hover:text-sumi transition-colors">
-                      {result.text}
-                    </p>
-                  </CardContent>
+                    </CardHeader>
+                    <CardContent className="px-6">
+                      <p className="text-sm font-light leading-relaxed text-sumi/80 group-hover:text-sumi transition-colors">
+                        {result.text}
+                      </p>
+                    </CardContent>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          </CardWrapper>
-        ))}
+              </Card>
+            </CardWrapper>
+          ))
+        ) : (
+          <div className="py-12 text-center text-[10px] uppercase tracking-widest text-muted-foreground bg-muted/5 border border-dashed border-border">
+            No results match your active filters.
+          </div>
+        )}
       </div>
     </div>
   )
