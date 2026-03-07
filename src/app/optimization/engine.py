@@ -13,7 +13,8 @@ def rank_results(results: List[Dict[str, Any]], qualities: List[str]) -> List[Di
     
     for result in results:
         score = 0
-        text = result.get("text", "").lower()
+        raw_text = result.get("text", "")
+        text = str(raw_text).lower()
         
         for quality in qualities:
             quality_lower = quality.lower()
