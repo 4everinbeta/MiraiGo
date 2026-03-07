@@ -60,6 +60,26 @@ The easiest way to run the full stack (Frontend, Backend, Database, and Redis) i
    ```
 4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### UI Testing
+
+MiraiGo includes a comprehensive UI testing suite using **Playwright**, covering functional regression, accessibility, and visual regression.
+
+1. Navigate to the `web/` directory.
+2. Run all E2E tests:
+   ```bash
+   npm run test:e2e
+   ```
+3. Run tests in UI mode (interactive):
+   ```bash
+   npm run test:e2e:ui
+   ```
+4. Update visual snapshots:
+   ```bash
+   npm run test:e2e:update
+   ```
+
+**Accessibility Audits:** Every functional test includes an automated accessibility audit powered by `axe-core`. Tests will fail if WCAG AA violations are detected.
+
 ## Tech Stack
 
 - **Frontend:** Next.js (TypeScript), Tailwind CSS v4, shadcn/ui, SWR.
