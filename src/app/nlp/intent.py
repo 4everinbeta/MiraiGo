@@ -12,6 +12,13 @@ DATES = [
     "summer", "winter", "spring", "fall", "next year", "next month"
 ]
 
+MODES = {
+    "flight": ["flight", "plane", "flying"],
+    "stay": ["stay", "hotel", "accommodation", "resort", "airbnb", "hostel", "apartment"],
+    "car": ["car", "rental", "driving", "vehicle"],
+    "bundle": ["bundle", "package", "all-in-one", "+"]
+}
+
 # Common cities for better extraction
 COMMON_CITIES = [
     "Paris", "London", "Tokyo", "New York", "Miami", "Denver", "Rome", "Barcelona", "Berlin", "Dubai"
@@ -56,7 +63,6 @@ def extract_intent(query: str) -> Dict[str, Any]:
     # Date Range Extraction
     date_range = None
     # from [start] to [end]
-    # We look for keywords that might follow a date range to avoid over-capturing
     stop_keywords = r'with|in|near|at|searching|looking|for'
     
     from_to_match = re.search(fr'from\s+(.+?)\s+to\s+(.+?)(?:\s+(?:{stop_keywords})|$)', query, re.IGNORECASE)
@@ -73,11 +79,20 @@ def extract_intent(query: str) -> Dict[str, Any]:
                 "start": between_and_match.group(1).strip(),
                 "end": between_and_match.group(2).strip()
             }
+
+    # Modes Extraction
+    found_modes = []
+    for mode, keywords in MODES.items():
+        for kw in keywords:
+            if kw in query_lower:
+                found_modes.append(mode)
+                break
             
     return {
         "location": location,
         "qualities": found_qualities,
         "dates": found_dates,
         "date_range": date_range,
+        "modes": found_modes,
         "original_query": query
     }
