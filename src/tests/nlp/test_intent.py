@@ -15,3 +15,18 @@ def test_extract_intent_complex():
     assert "family friendly" in intent["qualities"]
     assert "mountains" in intent["qualities"]
     assert "summer" in intent["dates"]
+
+def test_extract_intent_varied_phrasing():
+    # Test different ways of specifying location and qualities
+    query = "I want a luxurious stay in Tokyo for my honeymoon next month"
+    intent = extract_intent(query)
+    assert intent["location"] == "Tokyo"
+    assert "luxurious" in intent["qualities"]
+    assert "next month" in intent["dates"]
+
+def test_extract_intent_implicit_location():
+    # Location mentioned without 'to', 'in', or 'near'
+    query = "Paris vacation with mountain views"
+    intent = extract_intent(query)
+    assert intent["location"] == "Paris"
+    assert "mountain" in intent["qualities"]

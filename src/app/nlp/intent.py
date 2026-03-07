@@ -2,7 +2,7 @@ import re
 from typing import Dict, List, Any
 
 QUALITIES = [
-    "warm", "beach", "mountains", "amusement parks", "family friendly",
+    "warm", "beach", "mountains", "mountain", "amusement parks", "family friendly",
     "luxurious", "budget", "romantic", "quiet", "hiking", "skiing"
 ]
 
@@ -12,19 +12,34 @@ DATES = [
     "summer", "winter", "spring", "fall", "next year", "next month"
 ]
 
+# Common cities for better extraction
+COMMON_CITIES = [
+    "Paris", "London", "Tokyo", "New York", "Miami", "Denver", "Rome", "Barcelona", "Berlin", "Dubai"
+]
+
 def extract_intent(query: str) -> Dict[str, Any]:
     query_lower = query.lower()
     
-    # Simple Location Extraction (Look for "to", "in", "near" followed by capitalized words)
-    # This is a very basic heuristic.
+    # 1. Try explicit location keywords (to|in|near|at)
     location = None
-    location_match = re.search(r'(?:to|in|near)\s+([A-Z][a-z]+)', query)
+    location_match = re.search(r'(?:to|in|near|at)\s+([A-Z][a-z]+)', query)
     if location_match:
         location = location_match.group(1)
-    elif "miami" in query_lower:
-        location = "Miami"
-    elif "denver" in query_lower:
-        location = "Denver"
+    
+    # 2. If no explicit match, try finding common cities directly
+    if not location:
+        for city in COMMON_CITIES:
+            if city.lower() in query_lower:
+                location = city
+                break
+
+    # 3. Fallback to capitalized words that aren't qualities or dates (very basic)
+    if not location:
+        words = re.findall(r'\b[A-Z][a-z]+\b', query)
+        for word in words:
+            if word not in ["I", "Looking", "Find", "Searching"] and word not in DATES:
+                location = word
+                break
 
     # Qualities Extraction
     found_qualities = []
