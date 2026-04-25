@@ -1,7 +1,9 @@
 from src.app.schemas.search import (
+    ClarificationBudgetRange,
     ClarificationSlot,
     ClarificationSlotState,
     SearchRequest,
+    WeatherPreference,
 )
 from src.app.services.clarification import (
     CRITICAL_SLOT_ORDER,
@@ -136,3 +138,72 @@ def test_weather_state_is_carried_through_clarification():
     assert state.weather is not None
     assert state.weather.source_text in {"warm weather", "warm"}
     assert state.weather.ambiguous is False
+
+
+def test_continue_turn_with_preserved_resolved_fields_does_not_reopen_trip_length_or_budget():
+    service = SearchService()
+
+    first_turn = SearchRequest(
+        query="Warm beach trip in June",
+        destination="Honolulu",
+        date_range={"start": "2026-06-10", "end": "2026-06-17"},
+    )
+    _, _, state = service._resolve_request(first_turn)
+    assert state.next_question is not None
+    assert state.next_question.slot == ClarificationSlot.TRIP_LENGTH
+
+    second_turn = first_turn.model_copy(
+        update={
+            "trip_length_days": 7,
+            "clarification_answer": {
+                "slot": ClarificationSlot.TRIP_LENGTH,
+                "answer_text": "7 days",
+                "explicit_unknown": False,
+            },
+        }
+    )
+    _, _, state = service._resolve_request(second_turn)
+    assert state.next_question is not None
+    assert state.next_question.slot == ClarificationSlot.BUDGET
+
+    third_turn = second_turn.model_copy(
+        update={
+            "budget_range": ClarificationBudgetRange(
+                minimum=1500,
+                maximum=2500,
+                currency_code="USD",
+            ),
+            "clarification_answer": {
+                "slot": ClarificationSlot.BUDGET,
+                "answer_text": "$1500-$2500",
+                "explicit_unknown": False,
+            },
+            "weather_preference": WeatherPreference(
+                temperature="warm",
+                precipitation="avoid_rain",
+                source_text="warm and dry",
+            ),
+        }
+    )
+    _, _, state = service._resolve_request(third_turn)
+    assert state.next_question is None
+    assert state.all_critical_slots_resolved is True
+
+    continue_turn = third_turn.model_copy(
+        update={
+            "clarification_answer": None,
+            "recap_edit": None,
+            "constraint_updates": None,
+        }
+    )
+    resolved_continue, _, continue_state = service._resolve_request(continue_turn)
+
+    assert resolved_continue.trip_length_days == 7
+    assert resolved_continue.budget_range is not None
+    assert resolved_continue.budget_range.minimum == 1500
+    assert resolved_continue.budget_range.maximum == 2500
+    assert resolved_continue.weather_preference is not None
+    assert continue_state.next_question is None
+    assert continue_state.trip_length.value_label is not None
+    assert continue_state.budget.value_label is not None
+    assert continue_state.all_critical_slots_resolved is True

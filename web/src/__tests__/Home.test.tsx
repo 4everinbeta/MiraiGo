@@ -583,4 +583,291 @@ describe('Home Page Integration', () => {
       })
     )
   })
+
+  it('keeps resolved trip length and budget answers through continue in same turn sequence', async () => {
+    mockedSearchTrips
+      .mockResolvedValueOnce({
+        search_id: 'seq-1',
+        query: 'Warm beach trip',
+        requested_inventory: ['stay', 'flight'],
+        applied_filters: {
+          destination: 'Honolulu',
+          origin: null,
+          date_range: { start: '2026-06-10', end: '2026-06-17' },
+          trip_length_days: null,
+          budget_range: null,
+          weather_preference: {
+            temperature: 'warm',
+            precipitation: 'avoid_rain',
+            source_text: 'warm',
+          },
+          travelers: { adults: 2, children: 0, infants: 0 },
+          stay_filters: { amenities: ['wifi'] },
+          flight_filters: { nonstop: false },
+        },
+        provider_status: [],
+        warnings: [],
+        results: [],
+        clarification_state: {
+          destination: {
+            slot: 'destination',
+            value_label: 'Honolulu',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          timeline: {
+            slot: 'timeline',
+            value_label: 'June 10-17',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          trip_length: {
+            slot: 'trip_length',
+            value_label: null,
+            confidence: 0.2,
+            ambiguous: true,
+            explicit_unknown: false,
+            source: 'extracted',
+          },
+          budget: {
+            slot: 'budget',
+            value_label: null,
+            confidence: 0.2,
+            ambiguous: true,
+            explicit_unknown: false,
+            source: 'extracted',
+          },
+          next_question: {
+            slot: 'trip_length',
+            prompt: 'How many days should this trip be?',
+            helper_text: null,
+          },
+          recap: {
+            chips: [],
+            continue_label: 'Continue to Recommendations',
+          },
+          all_critical_slots_resolved: false,
+        },
+      })
+      .mockResolvedValueOnce({
+        search_id: 'seq-2',
+        query: 'Warm beach trip',
+        requested_inventory: ['stay', 'flight'],
+        applied_filters: {
+          destination: 'Honolulu',
+          origin: null,
+          date_range: { start: '2026-06-10', end: '2026-06-17' },
+          trip_length_days: 7,
+          budget_range: null,
+          weather_preference: {
+            temperature: 'warm',
+            precipitation: 'avoid_rain',
+            source_text: 'warm',
+          },
+          travelers: { adults: 2, children: 0, infants: 0 },
+          stay_filters: { amenities: ['wifi'] },
+          flight_filters: { nonstop: false },
+        },
+        provider_status: [],
+        warnings: [],
+        results: [],
+        clarification_state: {
+          destination: {
+            slot: 'destination',
+            value_label: 'Honolulu',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          timeline: {
+            slot: 'timeline',
+            value_label: 'June 10-17',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          trip_length: {
+            slot: 'trip_length',
+            value_label: '7 days',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          budget: {
+            slot: 'budget',
+            value_label: null,
+            confidence: 0.2,
+            ambiguous: true,
+            explicit_unknown: false,
+            source: 'extracted',
+          },
+          next_question: {
+            slot: 'budget',
+            prompt: 'What budget should we target?',
+            helper_text: null,
+          },
+          recap: {
+            chips: [],
+            continue_label: 'Continue to Recommendations',
+          },
+          all_critical_slots_resolved: false,
+        },
+      })
+      .mockResolvedValueOnce({
+        search_id: 'seq-3',
+        query: 'Warm beach trip',
+        requested_inventory: ['stay', 'flight'],
+        applied_filters: {
+          destination: 'Honolulu',
+          origin: null,
+          date_range: { start: '2026-06-10', end: '2026-06-17' },
+          trip_length_days: 7,
+          budget_range: {
+            minimum: 1500,
+            maximum: 2500,
+            currency_code: 'USD',
+          },
+          weather_preference: {
+            temperature: 'warm',
+            precipitation: 'avoid_rain',
+            source_text: 'warm',
+          },
+          travelers: { adults: 2, children: 0, infants: 0 },
+          stay_filters: { amenities: ['wifi'] },
+          flight_filters: { nonstop: false },
+        },
+        provider_status: [],
+        warnings: [],
+        results: [],
+        clarification_state: {
+          destination: {
+            slot: 'destination',
+            value_label: 'Honolulu',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          timeline: {
+            slot: 'timeline',
+            value_label: 'June 10-17',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          trip_length: {
+            slot: 'trip_length',
+            value_label: '7 days',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          budget: {
+            slot: 'budget',
+            value_label: '$1500-$2500',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          next_question: null,
+          recap: {
+            chips: [],
+            continue_label: 'Continue to Recommendations',
+          },
+          all_critical_slots_resolved: true,
+        },
+      })
+      .mockResolvedValueOnce({
+        search_id: 'seq-4',
+        query: 'Warm beach trip',
+        requested_inventory: ['stay', 'flight'],
+        applied_filters: {
+          destination: 'Honolulu',
+          origin: null,
+          date_range: { start: '2026-06-10', end: '2026-06-17' },
+          trip_length_days: 7,
+          budget_range: {
+            minimum: 1500,
+            maximum: 2500,
+            currency_code: 'USD',
+          },
+          weather_preference: {
+            temperature: 'warm',
+            precipitation: 'avoid_rain',
+            source_text: 'warm',
+          },
+          travelers: { adults: 2, children: 0, infants: 0 },
+          stay_filters: { amenities: ['wifi'] },
+          flight_filters: { nonstop: false },
+        },
+        provider_status: [],
+        warnings: [],
+        results: [],
+        clarification_state: null,
+      })
+
+    render(<Home />)
+
+    fireEvent.change(screen.getByLabelText(/travel prompt/i), {
+      target: { value: 'Warm beach trip' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit travel intent/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/how many days should this trip be\?/i)).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByLabelText(/your answer/i), {
+      target: { value: '7 days' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/what budget should we target\?/i)).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByLabelText(/your answer/i), {
+      target: { value: '$1500-$2500' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Continue to Recommendations' })
+      ).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue to Recommendations' }))
+
+    await waitFor(() => {
+      expect(mockedSearchTrips).toHaveBeenCalledTimes(4)
+    })
+
+    expect(mockedSearchTrips).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
+        trip_length_days: 7,
+        budget_range: {
+          minimum: 1500,
+          maximum: 2500,
+          currency_code: 'USD',
+        },
+        weather_preference: {
+          temperature: 'warm',
+          precipitation: 'avoid_rain',
+          source_text: 'warm',
+        },
+      })
+    )
+  })
 })
