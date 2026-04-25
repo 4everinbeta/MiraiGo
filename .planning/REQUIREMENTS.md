@@ -9,7 +9,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Intent & Input
 
-- [ ] **INTENT-01**: User can submit a free-form natural-language travel prompt describing broad preferences.
+- [x] **INTENT-01**: User can submit a free-form natural-language travel prompt describing broad preferences.
 - [x] **INTENT-02**: System can extract structured constraints from prompt (geography, weather, budget, timeline, trip length).
 - [x] **INTENT-03**: System can detect missing critical constraints and ask focused clarifying follow-up questions.
 - [x] **INTENT-04**: User can answer follow-up questions and update constraints without restarting search.
@@ -76,7 +76,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INTENT-01 | Phase 1 | Pending |
+| INTENT-01 | Phase 1 | Complete |
 | INTENT-02 | Phase 1 | Complete |
 | INTENT-03 | Phase 1 | Complete |
 | INTENT-04 | Phase 1 | Complete |
