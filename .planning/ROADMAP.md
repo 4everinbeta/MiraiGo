@@ -11,6 +11,10 @@ MiraiGo v1 delivers a complete destination discovery flow: users start with a fr
 - [ ] **Phase 3: Live Pricing & Budget Trust** - Enrich recommendations with real-time flight/hotel pricing and transparent freshness metadata.
 - [ ] **Phase 4: Discovery Filters** - Let users refine recommendation results with practical travel filters.
 - [ ] **Phase 5: Shortlist Save & Share** - Enable users to save promising destinations and share their shortlist by link.
+- [x] **Phase 6: Fix intent extraction for timeline and destination parsing** - Improve extraction reliability for destination/timeline constraints.
+- [ ] **Phase 7: Enhanced NLP** - Improve search-intent NLP breadth, precision, and robustness for real-world phrasing.
+- [ ] **Phase 8: Intent Verification Closure** - Close unresolved INTENT requirement verification gaps from milestone audit.
+- [ ] **Phase 9: Milestone Integration & Validation Backfill** - Close cross-phase integration and missing validation artifacts before milestone completion.
 
 ## Phase Details
 
@@ -84,3 +88,45 @@ Plans:
 | 3. Live Pricing & Budget Trust | 0/TBD | Not started | - |
 | 4. Discovery Filters | 0/TBD | Not started | - |
 | 5. Shortlist Save & Share | 0/TBD | Not started | - |
+| 6. Fix intent extraction for timeline and destination parsing | 1/1 | Complete | 06-01-PLAN.md |
+| 7. Enhanced NLP | 0/TBD | Not started | - |
+| 8. Intent Verification Closure | 0/TBD | Not started | - |
+| 9. Milestone Integration & Validation Backfill | 0/TBD | Not started | - |
+
+### Phase 6: Fix intent extraction for timeline and destination parsing
+
+**Goal:** Improve extraction reliability so timeline and destination slots remain accurate and clarification-safe across ambiguous natural-language phrasing.
+**Requirements**: INTENT-02, INTENT-03, INTENT-04
+**Depends on:** Phase 1
+**Plans:** 1 plan
+
+Plans:
+- [x] 06-01-PLAN.md — Harden destination/timeline parsing semantics, add edge-case tests, and verify clarification compatibility
+
+### Phase 7: Enhanced NLP
+
+**Goal:** Enhance the natural language processing for the search intent.
+**Requirements**: INTENT-02, INTENT-03, INTENT-04
+**Depends on:** Phase 6
+**Plans:** 3 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Accuracy and ambiguity hardening for core extraction
+- [ ] 07-02-PLAN.md — Multilingual query support and language-aware normalization
+- [ ] 07-03-PLAN.md — Synonym expansion and robustness tuning
+
+### Phase 8: Intent Verification Closure
+
+**Goal:** Close unresolved verification debt for INTENT-01 through INTENT-04 and bring Phase 1 acceptance evidence to a fully verified state.
+**Requirements**: INTENT-01, INTENT-02, INTENT-03, INTENT-04
+**Depends on:** Phase 7
+**Gap Closure:** Closes requirement gaps from milestone audit (`v1.0-v1.0-MILESTONE-AUDIT.md`)
+**Plans:** TBD
+
+### Phase 9: Milestone Integration & Validation Backfill
+
+**Goal:** Complete missing cross-phase integration checks, close milestone E2E flow audit gaps, and backfill missing Nyquist validation artifacts.
+**Requirements**: INTENT-01, INTENT-02, INTENT-03, INTENT-04
+**Depends on:** Phase 8
+**Gap Closure:** Closes integration/flow/Nyquist gaps from milestone audit (`v1.0-v1.0-MILESTONE-AUDIT.md`)
+**Plans:** TBD
