@@ -1,105 +1,59 @@
-from fastapi import APIRouter, Query, Depends
-from typing import List, Any, Dict, Optional
-import json
-import asyncio
-from src.app.nlp.intent import extract_intent
-from src.app.scrapers.expedia import ExpediaScraper
-from src.app.scrapers.booking import BookingScraper
-from src.app.scrapers.airbnb import AirbnbScraper
-from src.app.scrapers.amadeus import AmadeusClient
-from src.app.scrapers.niche_local import LocalNicheScraper
-from src.app.optimization.engine import rank_results
-from src.app.db.redis import redis_client
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
 
-router = APIRouter()
+from src.app.db.session import get_db
+from src.app.schemas.search import (
+    FlightFilters,
+    InventoryType,
+    ProviderStatusResponse,
+    SearchDateRange,
+    SearchRequest,
+    SearchResponse,
+    StayFilters,
+    TravelerCounts,
+)
+from src.app.services.search import search_service
 
-@router.get("/search")
-async def search(
+router = APIRouter(tags=["search"])
+
+
+@router.post("/search", response_model=SearchResponse)
+async def search(request: SearchRequest, db: Session = Depends(get_db)) -> SearchResponse:
+    """Primary search endpoint; response may include clarification_state when follow-up is needed."""
+    return await search_service.search(request, db=db)
+
+
+@router.get("/search", response_model=SearchResponse)
+async def search_compat(
     q: str = Query(..., description="Natural language travel search query"),
-    min_price: Optional[float] = Query(None),
-    max_price: Optional[float] = Query(None),
-    amenities: Optional[str] = Query(None, description="Comma-separated list of amenities"),
-    modes: Optional[str] = Query(None, description="Comma-separated list of travel modes")
-):
-    # 1. Check Cache
-    cache_key = f"search:{q.lower().strip()}:{min_price}:{max_price}:{amenities}:{modes}"
-    try:
-        cached_results = redis_client.get(cache_key)
-        if cached_results:
-            return json.loads(cached_results)
-    except Exception:
-        pass
+    destination: str | None = Query(default=None),
+    origin: str | None = Query(default=None),
+    start_date: str | None = Query(default=None),
+    end_date: str | None = Query(default=None),
+    max_price: float | None = Query(default=None),
+    nonstop: bool = Query(default=False),
+    inventory: list[InventoryType] | None = Query(default=None),
+    adults: int = Query(default=1, ge=1, le=9),
+    amenities: list[str] | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> SearchResponse:
+    date_range = None
+    if start_date:
+        date_range = SearchDateRange(start=start_date, end=end_date)
 
-    # 2. Extract Intent
-    intent = extract_intent(q)
-    
-    # Use NLP-extracted budget if no explicit filter provided
-    effective_max_price = max_price if max_price is not None else intent.get("budget")
-    
-    # 3. Scrape from multiple providers in parallel
-    scrapers = [
-        ExpediaScraper(), 
-        BookingScraper(), 
-        AirbnbScraper(),
-        AmadeusClient(),
-        LocalNicheScraper()
-    ]
-    
-    scraping_tasks = [scraper.scrape(intent["location"] or q) for scraper in scrapers]
-    raw_results = await asyncio.gather(*scraping_tasks, return_exceptions=True)
-    
-    # 4. Flatten and process results
-    all_results = []
-    for res in raw_results:
-        if isinstance(res, dict) and "results" in res:
-            provider = res.get("provider", "Unknown")
-            for item in res["results"]:
-                if isinstance(item, str):
-                    result_item = {
-                        "provider": provider,
-                        "text": item,
-                        "price": None,
-                        "amenities": []
-                    }
-                else:
-                    result_item = {
-                        "provider": provider,
-                        "text": item.get("text", ""),
-                        "price": item.get("price"),
-                        "amenities": item.get("amenities", [])
-                    }
-                    result_item.update({k: v for k, v in item.items() if k not in ["text", "price", "amenities"]})
-                all_results.append(result_item)
+    request = SearchRequest(
+        query=q,
+        destination=destination,
+        origin=origin,
+        date_range=date_range,
+        inventory=inventory or [InventoryType.STAY, InventoryType.FLIGHT],
+        travelers=TravelerCounts(adults=adults),
+        stay_filters=StayFilters(max_price=max_price, amenities=amenities or []),
+        flight_filters=FlightFilters(max_price=max_price, nonstop=nonstop),
+    )
+    return await search_service.search(request, db=db)
 
-    # 5. Apply Backend Filters
-    filtered_results = all_results
-    
-    if effective_max_price is not None:
-        filtered_results = [r for r in filtered_results if r.get("price") is None or r.get("price") <= effective_max_price]
-    
-    if min_price is not None:
-        filtered_results = [r for r in filtered_results if r.get("price") is None or r.get("price") >= min_price]
-        
-    if amenities:
-        target_amenities = [a.strip().lower() for a in amenities.split(",")]
-        filtered_results = [
-            r for r in filtered_results 
-            if any(ta in [ra.lower() for ra in r.get("amenities", [])] for ta in target_amenities)
-        ]
 
-    # 6. Optimize and Rank
-    ranked_results = rank_results(filtered_results, intent["qualities"])
-    
-    response_data = {
-        "intent": intent,
-        "count": len(ranked_results),
-        "results": ranked_results
-    }
-
-    # 7. Store in Cache
-    try:
-        redis_client.setex(cache_key, 3600, json.dumps(response_data))
-    except Exception:
-        pass
-    
-    return response_data
+@router.get("/providers/status", response_model=ProviderStatusResponse)
+async def provider_status() -> ProviderStatusResponse:
+    return ProviderStatusResponse(providers=await search_service.provider_status())

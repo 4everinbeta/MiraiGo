@@ -1,18 +1,37 @@
 import pytest
-from pydantic import ValidationError
-from src.app.schemas.search import DateRange, SearchFilterParams
 
-def test_date_range_valid():
-    dr = DateRange(start="2026-01-01", end="2026-01-15")
-    assert dr.start == "2026-01-01"
-    assert dr.end == "2026-01-15"
+from src.app.schemas.search import (
+    ClarificationAnswer,
+    ClarificationSlot,
+    InventoryType,
+    SearchDateRange,
+    SearchRequest,
+)
 
-def test_search_filter_params_valid():
-    filters = SearchFilterParams(max_price=500, amenities=["pool", "wifi"])
-    assert filters.max_price == 500
-    assert "pool" in filters.amenities
 
-def test_search_filter_params_optional():
-    filters = SearchFilterParams()
-    assert filters.max_price is None
-    assert filters.amenities == []
+def test_search_request_defaults():
+    payload = SearchRequest(query="Trip to Tokyo")
+    assert payload.inventory == [InventoryType.STAY, InventoryType.FLIGHT]
+    assert payload.travelers.adults == 1
+
+
+def test_search_date_range_validation():
+    with pytest.raises(ValueError):
+        SearchDateRange(start="2026-05-08", end="2026-05-03")
+
+
+def test_search_request_requires_query_or_destination():
+    with pytest.raises(ValueError):
+        SearchRequest(query=None, destination=None)
+
+
+def test_search_request_allows_clarification_without_query_or_destination():
+    payload = SearchRequest(
+        query=None,
+        destination=None,
+        clarification_answer=ClarificationAnswer(
+            slot=ClarificationSlot.DESTINATION,
+            answer_text="Portugal",
+        ),
+    )
+    assert payload.clarification_answer is not None
