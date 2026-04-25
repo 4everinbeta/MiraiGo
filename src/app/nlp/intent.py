@@ -206,8 +206,9 @@ def extract_intent(query: str) -> Dict[str, Any]:
     # 3. Fallback to capitalized words that aren't qualities or dates (very basic)
     if not location:
         words = re.findall(r'\b[A-Z][a-z]+\b', query)
+        stop_words = {"I", "Looking", "Find", "Searching", "Need", "Plan", "Trip", "Help"}
         for word in words:
-            if word not in ["I", "Looking", "Find", "Searching"] and word not in DATES:
+            if word not in stop_words and word not in DATES:
                 location = word
                 break
 

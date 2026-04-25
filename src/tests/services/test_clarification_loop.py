@@ -1,10 +1,15 @@
-from src.app.schemas.search import ClarificationSlot, ClarificationSlotState
+from src.app.schemas.search import (
+    ClarificationSlot,
+    ClarificationSlotState,
+    SearchRequest,
+)
 from src.app.services.clarification import (
     CRITICAL_SLOT_ORDER,
     GLOBAL_CONFIDENCE_THRESHOLD,
     build_clarification_state,
     select_next_question,
 )
+from src.app.services.search import SearchService
 
 
 def _slot_state(slot: ClarificationSlot, value: str | None, *, unknown: bool = False) -> ClarificationSlotState:
@@ -55,3 +60,79 @@ def test_build_clarification_state_has_no_next_question_when_resolved_or_unknown
     state = build_clarification_state(slot_states)
     assert state.all_critical_slots_resolved is True
     assert state.next_question is None
+
+
+def test_missing_slots_are_asked_in_priority_order_one_by_one():
+    service = SearchService()
+    req = SearchRequest(query="Need a trip")
+
+    _, _, state = service._resolve_request(req)
+    assert state.next_question is not None
+    assert state.next_question.slot == ClarificationSlot.DESTINATION
+
+    req = req.model_copy(
+        update={
+            "clarification_answer": {
+                "slot": ClarificationSlot.DESTINATION,
+                "answer_text": "Lisbon",
+                "explicit_unknown": False,
+            }
+        }
+    )
+    _, _, state = service._resolve_request(req)
+    assert state.next_question is not None
+    assert state.next_question.slot == ClarificationSlot.TIMELINE
+
+
+def test_explicit_unknown_allows_progression_with_warning():
+    service = SearchService()
+    req = SearchRequest(query="Help me pick somewhere")
+    _, _, state = service._resolve_request(req)
+    assert state.next_question is not None
+
+    req = req.model_copy(
+        update={
+            "clarification_answer": {
+                "slot": ClarificationSlot.DESTINATION,
+                "answer_text": None,
+                "explicit_unknown": True,
+            }
+        }
+    )
+    _, warnings, state = service._resolve_request(req)
+    assert state.destination.explicit_unknown is True
+    assert any("broader options" in warning for warning in warnings)
+
+
+def test_recap_edit_reopens_only_related_slots():
+    service = SearchService()
+    req = SearchRequest(
+        query="Trip to Lisbon",
+        destination="Lisbon",
+        trip_length_days=7,
+    )
+    _, _, state = service._resolve_request(req)
+    assert state.timeline.ambiguous is True
+
+    req = req.model_copy(
+        update={
+            "recap_edit": {
+                "slot": ClarificationSlot.DESTINATION,
+                "edited_value": "Porto",
+                "explicit_unknown": False,
+            }
+        }
+    )
+    _, _, state = service._resolve_request(req)
+    assert state.timeline.ambiguous is True
+    assert state.budget.ambiguous is True
+
+
+def test_weather_state_is_carried_through_clarification():
+    service = SearchService()
+    req = SearchRequest(query="Find warm weather in July")
+    _, _, state = service._resolve_request(req)
+
+    assert state.weather is not None
+    assert state.weather.source_text in {"warm weather", "warm"}
+    assert state.weather.ambiguous is False

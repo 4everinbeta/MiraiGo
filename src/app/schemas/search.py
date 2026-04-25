@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from enum import Enum
-from typing import Annotated, Literal, Union
+from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -44,6 +44,7 @@ class ClarificationSlot(str, Enum):
     TIMELINE = "timeline"
     TRIP_LENGTH = "trip_length"
     BUDGET = "budget"
+    WEATHER = "weather"
 
 
 class ClarificationBudgetRange(BaseModel):
@@ -65,9 +66,11 @@ class ClarificationBudgetRange(BaseModel):
 class ClarificationSlotState(BaseModel):
     slot: ClarificationSlot
     value_label: str | None = Field(default=None, max_length=160)
+    normalized_value: dict[str, Any] | None = None
     confidence: float = Field(default=1.0, ge=0, le=1)
     ambiguous: bool = False
     explicit_unknown: bool = False
+    source_text: str | None = Field(default=None, max_length=240)
     source: Literal["user", "extracted", "system"] = "extracted"
 
 
@@ -95,9 +98,25 @@ class ClarificationState(BaseModel):
     timeline: ClarificationSlotState
     trip_length: ClarificationSlotState
     budget: ClarificationSlotState
+    weather: ClarificationSlotState | None = None
     next_question: ClarificationQuestion | None = None
     recap: ClarificationRecap = Field(default_factory=ClarificationRecap)
     all_critical_slots_resolved: bool = False
+    history: list["ClarificationHistoryEntry"] = Field(default_factory=list)
+
+
+class ClarificationHistoryEntry(BaseModel):
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    slot: ClarificationSlot
+    previous_value: str | None = Field(default=None, max_length=240)
+    new_value: str | None = Field(default=None, max_length=240)
+    action: Literal["answer", "recap_edit", "constraint_update", "extraction", "unknown"]
+
+
+class WeatherPreference(BaseModel):
+    temperature: Literal["warm", "cool", "pleasant"] | None = None
+    precipitation: Literal["avoid_rain", "rain_ok"] | None = None
+    source_text: str | None = Field(default=None, max_length=240)
 
 
 class ClarificationAnswer(BaseModel):
@@ -129,6 +148,7 @@ class ConstraintUpdates(BaseModel):
     date_range: SearchDateRange | None = None
     trip_length_days: int | None = Field(default=None, ge=1, le=60)
     budget_range: ClarificationBudgetRange | None = None
+    weather_preference: WeatherPreference | None = None
     explicit_unknown_slots: list[ClarificationSlot] = Field(default_factory=list)
 
 
@@ -140,6 +160,9 @@ class SearchRequest(BaseModel):
     destination: str | None = Field(default=None, max_length=120)
     origin: str | None = Field(default=None, max_length=120)
     date_range: SearchDateRange | None = None
+    trip_length_days: int | None = Field(default=None, ge=1, le=60)
+    budget_range: ClarificationBudgetRange | None = None
+    weather_preference: WeatherPreference | None = None
     travelers: TravelerCounts = Field(default_factory=TravelerCounts)
     stay_filters: StayFilters = Field(default_factory=StayFilters)
     flight_filters: FlightFilters = Field(default_factory=FlightFilters)
@@ -148,6 +171,7 @@ class SearchRequest(BaseModel):
     clarification_answer: ClarificationAnswer | None = None
     recap_edit: ClarificationRecapEdit | None = None
     constraint_updates: ConstraintUpdates | None = None
+    clarification_state: ClarificationState | None = None
 
     @field_validator("inventory")
     @classmethod
@@ -173,6 +197,9 @@ class AppliedFilters(BaseModel):
     destination: str | None = None
     origin: str | None = None
     date_range: SearchDateRange | None = None
+    trip_length_days: int | None = None
+    budget_range: ClarificationBudgetRange | None = None
+    weather_preference: WeatherPreference | None = None
     travelers: TravelerCounts
     stay_filters: StayFilters
     flight_filters: FlightFilters
@@ -183,6 +210,9 @@ class AppliedFilters(BaseModel):
             destination=request.destination,
             origin=request.origin,
             date_range=request.date_range,
+            trip_length_days=request.trip_length_days,
+            budget_range=request.budget_range,
+            weather_preference=request.weather_preference,
             travelers=request.travelers,
             stay_filters=request.stay_filters,
             flight_filters=request.flight_filters,

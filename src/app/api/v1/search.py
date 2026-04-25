@@ -19,7 +19,7 @@ router = APIRouter(tags=["search"])
 
 @router.post("/search", response_model=SearchResponse)
 async def search(request: SearchRequest, db: Session = Depends(get_db)) -> SearchResponse:
-    """Primary search endpoint; response may include clarification_state when follow-up is needed."""
+    """Primary search endpoint; response may include clarification_state/weather metadata for follow-up turns."""
     return await search_service.search(request, db=db)
 
 

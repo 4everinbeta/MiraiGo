@@ -1,0 +1,811 @@
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import json
+import logging
+import time
+import uuid
+from dataclasses import dataclass
+from datetime import date
+
+from sqlalchemy.exc import SQLAlchemyError
+
+from src.app.core.config import settings
+from src.app.db.redis import redis_client
+from src.app.models.search import ProviderRun, SearchRun
+from src.app.nlp.intent import extract_intent
+from src.app.providers import get_provider_registry
+from src.app.providers.base import ProviderError, TravelProvider
+from src.app.schemas.search import (
+    AppliedFilters,
+    ClarificationAnswer,
+    ClarificationRecapEdit,
+    ClarificationSlot,
+    ClarificationSlotState,
+    ClarificationState,
+    ConstraintUpdates,
+    FlightSearchResult,
+    InventoryType,
+    ProviderStatus,
+    SearchDateRange,
+    SearchRequest,
+    SearchResponse,
+    SearchResult,
+    StaySearchResult,
+)
+from src.app.services.clarification import (
+    CRITICAL_SLOT_ORDER,
+    GLOBAL_CONFIDENCE_THRESHOLD,
+    build_clarification_state,
+    make_history_entry,
+    reopen_related_slots,
+    slot_state_from_metadata,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ProviderExecution:
+    provider: TravelProvider
+    inventory_type: InventoryType
+    configured: bool
+    cache_hit: bool
+    duration_ms: int
+    result_count: int
+    results: list[SearchResult]
+    error_message: str | None = None
+
+
+class SearchService:
+    def __init__(self) -> None:
+        self.providers = get_provider_registry()
+
+    async def provider_status(self) -> list[ProviderStatus]:
+        statuses = await asyncio.gather(
+            *[provider.healthcheck() for provider in self.providers]
+        )
+        return statuses
+
+    async def search(self, request: SearchRequest, db=None) -> SearchResponse:
+        resolved_request, warnings, clarification_state = self._resolve_request(request)
+        search_id = str(uuid.uuid4())
+
+        if clarification_state and not clarification_state.all_critical_slots_resolved:
+            statuses = await self.provider_status()
+            return SearchResponse(
+                search_id=search_id,
+                query=resolved_request.query or request.query or "",
+                requested_inventory=resolved_request.inventory,
+                applied_filters=AppliedFilters.from_request(resolved_request),
+                provider_status=statuses,
+                warnings=self._dedupe(warnings),
+                results=[],
+                clarification_state=clarification_state,
+            )
+
+        tasks = []
+        for provider in self.providers:
+            for inventory_type in resolved_request.inventory:
+                if provider.supports_inventory(inventory_type):
+                    tasks.append(self._execute_provider(provider, resolved_request, inventory_type))
+
+        executions = await asyncio.gather(*tasks)
+        statuses = await self.provider_status()
+        results: list[SearchResult] = []
+        for execution in executions:
+            results.extend(execution.results)
+            if execution.error_message:
+                warnings.append(
+                    f"{execution.provider.display_name} {execution.inventory_type.value} search unavailable: {execution.error_message}"
+                )
+
+        ranked_results = self._rank_results(results)
+        response = SearchResponse(
+            search_id=search_id,
+            query=resolved_request.query or "",
+            requested_inventory=resolved_request.inventory,
+            applied_filters=AppliedFilters.from_request(resolved_request),
+            provider_status=statuses,
+            warnings=self._dedupe(warnings),
+            results=ranked_results,
+            clarification_state=clarification_state,
+        )
+        self._cache_response(resolved_request, response)
+        self._record_search(db, response, resolved_request, executions)
+        return response
+
+    def _resolve_request(self, request: SearchRequest) -> tuple[SearchRequest, list[str], ClarificationState]:
+        warnings: list[str] = []
+        intent = extract_intent(request.query) if request.query else {}
+        slot_states = self._build_slot_states(request, intent)
+        history = list(request.clarification_state.history) if request.clarification_state else []
+
+        request, slot_states, history, turn_warnings = self._apply_clarification_turn(
+            request=request,
+            slot_states=slot_states,
+            history=history,
+        )
+        warnings.extend(turn_warnings)
+
+        if (
+            InventoryType.FLIGHT in request.inventory
+            and not request.origin
+            and request.query
+            and "from" in request.query.lower()
+        ):
+            origin = self._extract_origin_hint(request.query)
+            if origin:
+                request = request.model_copy(update={"origin": origin})
+
+        if not request.origin and InventoryType.FLIGHT in request.inventory:
+            warnings.append("Flight search needs an origin airport or city; flights may be skipped.")
+
+        if slot_states[ClarificationSlot.DESTINATION].confidence < GLOBAL_CONFIDENCE_THRESHOLD:
+            warnings.append("Destination is still unclear; please confirm to improve results.")
+
+        clarification_state = build_clarification_state(
+            slot_states,
+            history=history,
+            weather_state=slot_states.get(ClarificationSlot.WEATHER),
+        )
+        return request.model_copy(update={"clarification_state": clarification_state}), warnings, clarification_state
+
+    def _build_slot_states(
+        self, request: SearchRequest, intent: dict
+    ) -> dict[ClarificationSlot, ClarificationSlotState]:
+        slot_metadata = intent.get("slot_metadata", {})
+        normalized_timeline = intent.get("normalized_timeline")
+        normalized_budget = intent.get("normalized_budget")
+        normalized_weather = intent.get("normalized_weather")
+
+        destination_state = slot_state_from_metadata(
+            ClarificationSlot.DESTINATION,
+            {
+                "value": request.destination,
+                "confidence": 1.0 if request.destination else 0.0,
+                "ambiguous": request.destination is None,
+                "source_text": request.destination,
+            }
+            if request.destination
+            else (
+                slot_metadata.get("destination")
+                or {
+                    "value": None,
+                    "confidence": 0.0,
+                    "ambiguous": True,
+                    "source_text": None,
+                }
+            ),
+        )
+        timeline_source = None
+        if request.date_range:
+            timeline_source = {
+                "window": {
+                    "start": request.date_range.start.isoformat(),
+                    "end": request.date_range.end.isoformat() if request.date_range.end else None,
+                },
+                "precision": "explicit",
+                "source_text": request.date_range.start.isoformat(),
+            }
+        timeline_state = slot_state_from_metadata(
+            ClarificationSlot.TIMELINE,
+            {
+                "value": timeline_source or normalized_timeline,
+                "confidence": 1.0 if (request.date_range or normalized_timeline) else 0.0,
+                "ambiguous": request.date_range is None and normalized_timeline is None,
+                "source_text": request.date_range.start.isoformat() if request.date_range else None,
+            }
+            if request.date_range
+            else (
+                slot_metadata.get("timeline")
+                or {
+                    "value": normalized_timeline,
+                    "confidence": 0.0 if normalized_timeline is None else 0.7,
+                    "ambiguous": normalized_timeline is None,
+                    "source_text": None,
+                }
+            ),
+        )
+        trip_length_state = slot_state_from_metadata(
+            ClarificationSlot.TRIP_LENGTH,
+            {
+                "value": request.trip_length_days,
+                "confidence": 1.0 if request.trip_length_days else 0.0,
+                "ambiguous": request.trip_length_days is None,
+                "source_text": str(request.trip_length_days) if request.trip_length_days else None,
+            }
+            if request.trip_length_days
+            else (
+                slot_metadata.get("trip_length")
+                or {
+                    "value": None,
+                    "confidence": 0.0,
+                    "ambiguous": True,
+                    "source_text": None,
+                }
+            ),
+        )
+        budget_state = slot_state_from_metadata(
+            ClarificationSlot.BUDGET,
+            {
+                "value": (
+                    request.budget_range.model_dump(mode="json")
+                    if request.budget_range
+                    else normalized_budget
+                ),
+                "confidence": 1.0 if (request.budget_range or normalized_budget) else 0.0,
+                "ambiguous": request.budget_range is None and normalized_budget is None,
+                "source_text": request.budget_range.model_dump_json() if request.budget_range else None,
+            }
+            if request.budget_range
+            else (
+                slot_metadata.get("budget")
+                or {
+                    "value": normalized_budget,
+                    "confidence": 0.0 if normalized_budget is None else 0.8,
+                    "ambiguous": normalized_budget is None,
+                    "source_text": None,
+                }
+            ),
+        )
+        weather_state = slot_state_from_metadata(
+            ClarificationSlot.WEATHER,
+            {
+                "value": (
+                    request.weather_preference.model_dump(mode="json")
+                    if request.weather_preference
+                    else normalized_weather
+                ),
+                "confidence": 1.0 if (request.weather_preference or normalized_weather) else 0.0,
+                "ambiguous": request.weather_preference is None and normalized_weather is None,
+                "source_text": request.weather_preference.source_text if request.weather_preference else None,
+            }
+            if request.weather_preference
+            else (
+                slot_metadata.get("weather")
+                or {
+                    "value": normalized_weather,
+                    "confidence": 0.0 if normalized_weather is None else 0.8,
+                    "ambiguous": normalized_weather is None,
+                    "source_text": None,
+                }
+            ),
+        )
+
+        return {
+            ClarificationSlot.DESTINATION: destination_state,
+            ClarificationSlot.TIMELINE: timeline_state,
+            ClarificationSlot.TRIP_LENGTH: trip_length_state,
+            ClarificationSlot.BUDGET: budget_state,
+            ClarificationSlot.WEATHER: weather_state,
+        }
+
+    def _apply_clarification_turn(
+        self,
+        *,
+        request: SearchRequest,
+        slot_states: dict[ClarificationSlot, ClarificationSlotState],
+        history: list,
+    ) -> tuple[SearchRequest, dict[ClarificationSlot, ClarificationSlotState], list, list[str]]:
+        warnings: list[str] = []
+        updates: dict = {}
+        allowed_update_slots = {
+            ClarificationSlot.DESTINATION,
+            ClarificationSlot.TIMELINE,
+            ClarificationSlot.TRIP_LENGTH,
+            ClarificationSlot.BUDGET,
+            ClarificationSlot.WEATHER,
+        }
+
+        if request.query and not request.destination:
+            intent = extract_intent(request.query)
+            if intent.get("location"):
+                updates["destination"] = intent["location"]
+
+            if not request.date_range and intent.get("date_range"):
+                parsed_date_range = self._parse_date_range(intent["date_range"])
+                if parsed_date_range:
+                    updates["date_range"] = parsed_date_range
+
+        clarification_answer = request.clarification_answer
+        if isinstance(clarification_answer, dict):
+            clarification_answer = ClarificationAnswer.model_validate(clarification_answer)
+
+        if clarification_answer:
+            slot = clarification_answer.slot
+            if slot in allowed_update_slots:
+                previous_value = slot_states[slot].value_label
+                if clarification_answer.explicit_unknown:
+                    slot_states[slot] = slot_states[slot].model_copy(
+                        update={
+                            "explicit_unknown": True,
+                            "ambiguous": False,
+                            "confidence": 1.0,
+                            "value_label": "I don't know",
+                            "source": "user",
+                        }
+                    )
+                    warnings.append(f"{slot.value.replace('_', ' ').title()} marked as unknown; proceeding with broader options.")
+                    history.append(
+                        make_history_entry(
+                            slot=slot,
+                            previous_value=previous_value,
+                            new_value="I don't know",
+                            action="unknown",
+                        )
+                    )
+                else:
+                    answer_text = (clarification_answer.answer_text or "").strip()
+                    self._apply_slot_answer(slot, answer_text, updates, slot_states)
+                    history.append(
+                        make_history_entry(
+                            slot=slot,
+                            previous_value=previous_value,
+                            new_value=answer_text,
+                            action="answer",
+                        )
+                    )
+
+        recap_edit = request.recap_edit
+        if isinstance(recap_edit, dict):
+            recap_edit = ClarificationRecapEdit.model_validate(recap_edit)
+
+        if recap_edit:
+            slot = recap_edit.slot
+            if slot in allowed_update_slots:
+                previous_value = slot_states[slot].value_label
+                if recap_edit.explicit_unknown:
+                    slot_states[slot] = slot_states[slot].model_copy(
+                        update={
+                            "explicit_unknown": True,
+                            "ambiguous": False,
+                            "confidence": 1.0,
+                            "value_label": "I don't know",
+                            "source": "user",
+                        }
+                    )
+                    history.append(
+                        make_history_entry(
+                            slot=slot,
+                            previous_value=previous_value,
+                            new_value="I don't know",
+                            action="unknown",
+                        )
+                    )
+                else:
+                    edited_value = (recap_edit.edited_value or "").strip()
+                    self._apply_slot_answer(slot, edited_value, updates, slot_states)
+                    history.append(
+                        make_history_entry(
+                            slot=slot,
+                            previous_value=previous_value,
+                            new_value=edited_value,
+                            action="recap_edit",
+                        )
+                    )
+                reopen_related_slots(slot_states, slot)
+
+        if request.constraint_updates:
+            self._apply_constraint_updates(
+                updates=updates,
+                constraint_updates=request.constraint_updates,
+                slot_states=slot_states,
+                history=history,
+                allowed_update_slots=allowed_update_slots,
+            )
+
+        if updates:
+            request = request.model_copy(update=updates)
+        return request, slot_states, history, warnings
+
+    def _apply_slot_answer(
+        self,
+        slot: ClarificationSlot,
+        answer_text: str,
+        updates: dict,
+        slot_states: dict[ClarificationSlot, ClarificationSlotState],
+    ) -> None:
+        if slot == ClarificationSlot.DESTINATION:
+            updates["destination"] = answer_text
+        elif slot == ClarificationSlot.TIMELINE:
+            parsed = self._parse_timeline_answer(answer_text)
+            if parsed:
+                updates["date_range"] = parsed
+        elif slot == ClarificationSlot.TRIP_LENGTH:
+            value = self._parse_trip_length_answer(answer_text)
+            if value:
+                updates["trip_length_days"] = value
+        elif slot == ClarificationSlot.BUDGET:
+            parsed_budget = self._parse_budget_answer(answer_text)
+            if parsed_budget:
+                updates["budget_range"] = parsed_budget
+        elif slot == ClarificationSlot.WEATHER:
+            weather = self._parse_weather_answer(answer_text)
+            if weather:
+                updates["weather_preference"] = weather
+
+        slot_states[slot] = slot_states[slot].model_copy(
+            update={
+                "value_label": answer_text,
+                "confidence": 1.0,
+                "ambiguous": False,
+                "explicit_unknown": False,
+                "source_text": answer_text,
+                "source": "user",
+            }
+        )
+
+    def _apply_constraint_updates(
+        self,
+        *,
+        updates: dict,
+        constraint_updates: ConstraintUpdates,
+        slot_states: dict[ClarificationSlot, ClarificationSlotState],
+        history: list,
+        allowed_update_slots: set[ClarificationSlot],
+    ) -> None:
+        if constraint_updates.destination is not None:
+            previous = slot_states[ClarificationSlot.DESTINATION].value_label
+            updates["destination"] = constraint_updates.destination
+            slot_states[ClarificationSlot.DESTINATION] = slot_states[ClarificationSlot.DESTINATION].model_copy(
+                update={
+                    "value_label": constraint_updates.destination,
+                    "confidence": 1.0,
+                    "ambiguous": False,
+                    "source": "user",
+                    "source_text": constraint_updates.destination,
+                }
+            )
+            history.append(
+                make_history_entry(
+                    slot=ClarificationSlot.DESTINATION,
+                    previous_value=previous,
+                    new_value=constraint_updates.destination,
+                    action="constraint_update",
+                )
+            )
+        if constraint_updates.date_range is not None:
+            previous = slot_states[ClarificationSlot.TIMELINE].value_label
+            updates["date_range"] = constraint_updates.date_range
+            slot_states[ClarificationSlot.TIMELINE] = slot_states[ClarificationSlot.TIMELINE].model_copy(
+                update={
+                    "value_label": constraint_updates.date_range.start.isoformat(),
+                    "normalized_value": constraint_updates.date_range.model_dump(mode="json"),
+                    "confidence": 1.0,
+                    "ambiguous": False,
+                    "source": "user",
+                    "source_text": constraint_updates.date_range.start.isoformat(),
+                }
+            )
+            history.append(
+                make_history_entry(
+                    slot=ClarificationSlot.TIMELINE,
+                    previous_value=previous,
+                    new_value=constraint_updates.date_range.start.isoformat(),
+                    action="constraint_update",
+                )
+            )
+        if constraint_updates.trip_length_days is not None:
+            previous = slot_states[ClarificationSlot.TRIP_LENGTH].value_label
+            updates["trip_length_days"] = constraint_updates.trip_length_days
+            slot_states[ClarificationSlot.TRIP_LENGTH] = slot_states[ClarificationSlot.TRIP_LENGTH].model_copy(
+                update={
+                    "value_label": f"{constraint_updates.trip_length_days} days",
+                    "confidence": 1.0,
+                    "ambiguous": False,
+                    "source": "user",
+                    "source_text": str(constraint_updates.trip_length_days),
+                }
+            )
+            history.append(
+                make_history_entry(
+                    slot=ClarificationSlot.TRIP_LENGTH,
+                    previous_value=previous,
+                    new_value=str(constraint_updates.trip_length_days),
+                    action="constraint_update",
+                )
+            )
+        if constraint_updates.budget_range is not None:
+            previous = slot_states[ClarificationSlot.BUDGET].value_label
+            updates["budget_range"] = constraint_updates.budget_range
+            slot_states[ClarificationSlot.BUDGET] = slot_states[ClarificationSlot.BUDGET].model_copy(
+                update={
+                    "value_label": f"{constraint_updates.budget_range.minimum}-{constraint_updates.budget_range.maximum}",
+                    "normalized_value": constraint_updates.budget_range.model_dump(mode="json"),
+                    "confidence": 1.0,
+                    "ambiguous": False,
+                    "source": "user",
+                    "source_text": f"{constraint_updates.budget_range.minimum}-{constraint_updates.budget_range.maximum}",
+                }
+            )
+            history.append(
+                make_history_entry(
+                    slot=ClarificationSlot.BUDGET,
+                    previous_value=previous,
+                    new_value=f"{constraint_updates.budget_range.minimum}-{constraint_updates.budget_range.maximum}",
+                    action="constraint_update",
+                )
+            )
+        if constraint_updates.weather_preference is not None:
+            previous = slot_states[ClarificationSlot.WEATHER].value_label
+            updates["weather_preference"] = constraint_updates.weather_preference
+            slot_states[ClarificationSlot.WEATHER] = slot_states[ClarificationSlot.WEATHER].model_copy(
+                update={
+                    "value_label": constraint_updates.weather_preference.source_text or "weather preference",
+                    "normalized_value": constraint_updates.weather_preference.model_dump(mode="json"),
+                    "confidence": 1.0,
+                    "ambiguous": False,
+                    "source": "user",
+                    "source_text": constraint_updates.weather_preference.source_text,
+                }
+            )
+            history.append(
+                make_history_entry(
+                    slot=ClarificationSlot.WEATHER,
+                    previous_value=previous,
+                    new_value=constraint_updates.weather_preference.source_text,
+                    action="constraint_update",
+                )
+            )
+
+        for slot in constraint_updates.explicit_unknown_slots:
+            if slot not in allowed_update_slots:
+                continue
+            previous = slot_states[slot].value_label
+            slot_states[slot] = slot_states[slot].model_copy(
+                update={
+                    "explicit_unknown": True,
+                    "ambiguous": False,
+                    "confidence": 1.0,
+                    "value_label": "I don't know",
+                    "source": "user",
+                }
+            )
+            history.append(
+                make_history_entry(
+                    slot=slot,
+                    previous_value=previous,
+                    new_value="I don't know",
+                    action="unknown",
+                )
+            )
+
+    def _parse_trip_length_answer(self, answer_text: str) -> int | None:
+        match = next((token for token in answer_text.split() if token.isdigit()), None)
+        if match:
+            return int(match)
+        return None
+
+    def _parse_timeline_answer(self, answer_text: str) -> SearchDateRange | None:
+        parsed = self._parse_date_range({"start": answer_text, "end": None})
+        if parsed:
+            return parsed
+        return None
+
+    def _parse_budget_answer(self, answer_text: str):
+        numbers = [int(item) for item in answer_text.replace("$", "").replace(",", " ").split() if item.isdigit()]
+        if not numbers:
+            return None
+        from src.app.schemas.search import ClarificationBudgetRange
+        if len(numbers) == 1:
+            return ClarificationBudgetRange(minimum=0, maximum=float(numbers[0]))
+        low, high = min(numbers[0], numbers[1]), max(numbers[0], numbers[1])
+        return ClarificationBudgetRange(minimum=float(low), maximum=float(high))
+
+    def _parse_weather_answer(self, answer_text: str):
+        from src.app.schemas.search import WeatherPreference
+        lowered = answer_text.lower()
+        temperature = None
+        precipitation = None
+        if "warm" in lowered:
+            temperature = "warm"
+        elif "cool" in lowered:
+            temperature = "cool"
+        elif "nice" in lowered or "pleasant" in lowered:
+            temperature = "pleasant"
+        if "avoid rain" in lowered or "no rain" in lowered:
+            precipitation = "avoid_rain"
+        elif "rain" in lowered:
+            precipitation = "rain_ok"
+        if not temperature and not precipitation:
+            return None
+        return WeatherPreference(
+            temperature=temperature,
+            precipitation=precipitation,
+            source_text=answer_text,
+        )
+
+    def _extract_origin_hint(self, query: str) -> str | None:
+        lowered = query.lower()
+        if "from " not in lowered:
+            return None
+        fragment = query[lowered.index("from ") + 5 :]
+        origin = fragment.split(" to ")[0].split(" on ")[0].split(" leaving ")[0].strip()
+        return origin or None
+
+    async def _execute_provider(
+        self, provider: TravelProvider, request: SearchRequest, inventory_type: InventoryType
+    ) -> ProviderExecution:
+        start = time.perf_counter()
+        if not provider.is_configured:
+            return ProviderExecution(
+                provider=provider,
+                inventory_type=inventory_type,
+                configured=False,
+                cache_hit=False,
+                duration_ms=0,
+                result_count=0,
+                results=[],
+                error_message=provider.unconfigured_reason,
+            )
+
+        cached = self._read_cached_provider_results(provider, request, inventory_type)
+        if cached is not None:
+            return ProviderExecution(
+                provider=provider,
+                inventory_type=inventory_type,
+                configured=True,
+                cache_hit=True,
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                result_count=len(cached),
+                results=cached,
+            )
+
+        try:
+            results = await provider.search(request, inventory_type)
+            self._cache_provider_results(provider, request, inventory_type, results)
+            return ProviderExecution(
+                provider=provider,
+                inventory_type=inventory_type,
+                configured=True,
+                cache_hit=False,
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                result_count=len(results),
+                results=results,
+            )
+        except ProviderError as exc:
+            logger.warning("Provider search failed: %s", exc)
+            return ProviderExecution(
+                provider=provider,
+                inventory_type=inventory_type,
+                configured=True,
+                cache_hit=False,
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                result_count=0,
+                results=[],
+                error_message=str(exc),
+            )
+
+    def _rank_results(self, results: list[SearchResult]) -> list[SearchResult]:
+        def sort_key(item: SearchResult) -> tuple[float, float]:
+            penalty = 0.0
+            if isinstance(item, FlightSearchResult):
+                penalty = item.stops * 10
+            return (-item.score, item.total_price + penalty)
+
+        return sorted(results, key=sort_key)
+
+    def _provider_cache_key(
+        self, provider: TravelProvider, request: SearchRequest, inventory_type: InventoryType
+    ) -> str:
+        payload = request.model_dump(mode="json")
+        payload["inventory"] = [inventory_type.value]
+        raw = json.dumps(payload, sort_keys=True)
+        digest = hashlib.sha256(raw.encode()).hexdigest()
+        return f"provider:{provider.provider_name}:{inventory_type.value}:{digest}"
+
+    def _read_cached_provider_results(
+        self, provider: TravelProvider, request: SearchRequest, inventory_type: InventoryType
+    ) -> list[SearchResult] | None:
+        try:
+            cached = redis_client.get(self._provider_cache_key(provider, request, inventory_type))
+            if not cached:
+                return None
+            data = json.loads(cached)
+            return [self._result_from_dict(item) for item in data]
+        except Exception:
+            return None
+
+    def _cache_provider_results(
+        self,
+        provider: TravelProvider,
+        request: SearchRequest,
+        inventory_type: InventoryType,
+        results: list[SearchResult],
+    ) -> None:
+        try:
+            redis_client.setex(
+                self._provider_cache_key(provider, request, inventory_type),
+                settings.SEARCH_CACHE_TTL_SECONDS,
+                json.dumps([result.model_dump(mode="json") for result in results]),
+            )
+        except Exception:
+            pass
+
+    def _cache_response(self, request: SearchRequest, response: SearchResponse) -> None:
+        try:
+            digest = hashlib.sha256(
+                json.dumps(request.model_dump(mode="json"), sort_keys=True).encode()
+            ).hexdigest()
+            redis_client.setex(
+                f"search:{digest}",
+                settings.SEARCH_CACHE_TTL_SECONDS,
+                response.model_dump_json(),
+            )
+        except Exception:
+            pass
+
+    def _record_search(
+        self,
+        db,
+        response: SearchResponse,
+        request: SearchRequest,
+        executions: list[ProviderExecution],
+    ) -> None:
+        if db is None:
+            return
+        try:
+            search_run = SearchRun(
+                search_id=response.search_id,
+                query=request.query or "",
+                inventories=[item.value for item in request.inventory],
+                request_payload=request.model_dump(mode="json"),
+                warnings=response.warnings,
+                result_count=len(response.results),
+            )
+            db.add(search_run)
+            db.flush()
+            for execution in executions:
+                db.add(
+                    ProviderRun(
+                        search_run_id=search_run.id,
+                        provider=execution.provider.provider_name,
+                        inventory_type=execution.inventory_type.value,
+                        configured=execution.configured,
+                        success=execution.error_message is None,
+                        cache_hit=execution.cache_hit,
+                        result_count=execution.result_count,
+                        duration_ms=execution.duration_ms,
+                        error_message=execution.error_message,
+                    )
+                )
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+
+    def _result_from_dict(self, payload: dict) -> SearchResult:
+        inventory_type = payload.get("inventory_type")
+        if inventory_type == InventoryType.FLIGHT.value:
+            return FlightSearchResult(**payload)
+        return StaySearchResult(**payload)
+
+    def _dedupe(self, items: list[str]) -> list[str]:
+        seen = []
+        for item in items:
+            if item and item not in seen:
+                seen.append(item)
+        return seen
+
+    def _parse_date_range(self, payload: dict | None) -> SearchDateRange | None:
+        if not payload:
+            return None
+        start = self._parse_date_value(payload.get("start"))
+        end = self._parse_date_value(payload.get("end"))
+        if not start:
+            return None
+        return SearchDateRange(start=start, end=end)
+
+    def _parse_date_value(self, value: str | date | None) -> date | None:
+        if isinstance(value, date):
+            return value
+        if not value:
+            return None
+        try:
+            return date.fromisoformat(str(value))
+        except ValueError:
+            return None
+
+
+search_service = SearchService()

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from src.app.schemas.search import (
+    ClarificationHistoryEntry,
     ClarificationQuestion,
     ClarificationRecap,
     ClarificationRecapChip,
@@ -109,6 +112,8 @@ def build_recap(slot_states: dict[ClarificationSlot, ClarificationSlotState]) ->
 
 def build_clarification_state(
     slot_states: dict[ClarificationSlot, ClarificationSlotState],
+    history: list[ClarificationHistoryEntry] | None = None,
+    weather_state: ClarificationSlotState | None = None,
 ) -> ClarificationState:
     resolved = all_critical_slots_resolved(slot_states)
     next_question = None if resolved else select_next_question(slot_states)
@@ -117,7 +122,59 @@ def build_clarification_state(
         timeline=slot_states[ClarificationSlot.TIMELINE],
         trip_length=slot_states[ClarificationSlot.TRIP_LENGTH],
         budget=slot_states[ClarificationSlot.BUDGET],
+        weather=weather_state,
         next_question=next_question,
         recap=build_recap(slot_states),
         all_critical_slots_resolved=resolved,
+        history=history or [],
     )
+
+
+def slot_state_from_metadata(
+    slot: ClarificationSlot,
+    metadata: dict | None,
+) -> ClarificationSlotState:
+    metadata = metadata or {}
+    value = metadata.get("value")
+    value_label = None if value is None else str(value)
+    if isinstance(value, dict):
+        value_label = metadata.get("source_text") or str(value)
+    return ClarificationSlotState(
+        slot=slot,
+        value_label=value_label,
+        normalized_value=value if isinstance(value, dict) else None,
+        confidence=float(metadata.get("confidence", 0.0)),
+        ambiguous=bool(metadata.get("ambiguous", value is None)),
+        source_text=metadata.get("source_text"),
+        source="extracted",
+    )
+
+
+def make_history_entry(
+    *,
+    slot: ClarificationSlot,
+    previous_value: str | None,
+    new_value: str | None,
+    action: str,
+) -> ClarificationHistoryEntry:
+    return ClarificationHistoryEntry(
+        timestamp=datetime.now(UTC),
+        slot=slot,
+        previous_value=previous_value,
+        new_value=new_value,
+        action=action,
+    )
+
+
+def reopen_related_slots(
+    slot_states: dict[ClarificationSlot, ClarificationSlotState],
+    edited_slot: ClarificationSlot,
+) -> None:
+    for related_slot in RELATED_SLOT_GRAPH.get(edited_slot, ()):
+        state = slot_states[related_slot]
+        slot_states[related_slot] = state.model_copy(
+            update={
+                "ambiguous": True,
+                "confidence": min(state.confidence, GLOBAL_CONFIDENCE_THRESHOLD - 0.01),
+            }
+        )
