@@ -1,178 +1,339 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Input } from '@/components/ui/input'
+import { useMemo, useState } from 'react'
+import { PencilLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Search, Calendar as CalendarIcon, Tag, X } from 'lucide-react'
-import { Calendar } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { cn } from '@/lib/utils'
-import { format } from 'date-fns'
-import { DateRange } from 'react-day-picker'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import type {
+  ClarificationRecapChip,
+  ClarificationSlot,
+  ClarificationState,
+  InventoryType,
+  SearchRequest,
+} from '@/lib/api'
 
 interface SearchFormProps {
-  onSearch: (params: { q: string; dateRange?: DateRange; qualities?: string[] }) => void
+  onSearch: (params: SearchRequest) => void
+  isSubmitting?: boolean
+  clarificationState?: ClarificationState | null
 }
 
-const AVAILABLE_QUALITIES = ["Beach", "Mountains", "Luxury", "Budget", "Family", "Romantic", "Quiet", "Hiking", "Skiing"]
+const DEFAULT_AMENITIES = ['wifi']
+const EMPTY_COPY_HEADING = 'Start with your travel intent'
+const EMPTY_COPY_BODY =
+  'Describe where, when, and budget if known. We’ll ask one follow-up at a time to fill missing details.'
 
-const SearchForm: React.FC<SearchFormProps> = ({ onSearch }) => {
+function buildBaseRequest(query: string): Omit<
+  SearchRequest,
+  'clarification_answer' | 'recap_edit' | 'constraint_updates'
+> {
+  const inventory: InventoryType[] = ['stay', 'flight']
+  return {
+    query: query.trim() || undefined,
+    inventory,
+    travelers: {
+      adults: 2,
+      children: 0,
+      infants: 0,
+    },
+    stay_filters: {
+      amenities: DEFAULT_AMENITIES,
+    },
+    flight_filters: {
+      nonstop: false,
+    },
+    currency_code: 'USD',
+    limit_per_provider: 5,
+  }
+}
+
+function slotToInputLabel(chip: ClarificationRecapChip) {
+  return `Update ${chip.label}`
+}
+
+function formatEditableDefault(chip: ClarificationRecapChip) {
+  const normalized = chip.value_label.toLowerCase()
+  if (normalized === 'missing' || normalized === "i don't know") {
+    return ''
+  }
+  return chip.value_label
+}
+
+export default function SearchForm({
+  onSearch,
+  isSubmitting = false,
+  clarificationState = null,
+}: SearchFormProps) {
   const [query, setQuery] = useState('')
-  const [showDates, setShowDates] = useState(false)
-  const [showQualities, setShowQualities] = useState(false)
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
-  const [selectedQualities, setSelectedQualities] = useState<string[]>([])
+  const [answerText, setAnswerText] = useState('')
+  const [editingSlot, setEditingSlot] = useState<ClarificationSlot | null>(null)
+  const [editedValue, setEditedValue] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSearch({ 
-      q: query,
-      dateRange: dateRange,
-      qualities: selectedQualities
+  const activeQuestion = clarificationState?.next_question ?? null
+  const recapChips = clarificationState?.recap.chips ?? []
+  const canBegin = Boolean(query.trim())
+  const canSubmitAnswer = Boolean(answerText.trim() && activeQuestion)
+  const complete = Boolean(clarificationState?.all_critical_slots_resolved)
+
+  const activeChip = useMemo(
+    () => recapChips.find((chip) => chip.slot === editingSlot) ?? null,
+    [editingSlot, recapChips]
+  )
+
+  const handleBegin = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!canBegin || isSubmitting) return
+    onSearch(buildBaseRequest(query))
+    setAnswerText('')
+  }
+
+  const handleAnswerSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!activeQuestion || !canSubmitAnswer || isSubmitting) return
+
+    onSearch({
+      ...buildBaseRequest(query),
+      clarification_answer: {
+        slot: activeQuestion.slot,
+        answer_text: answerText.trim(),
+        explicit_unknown: false,
+      },
+    })
+    setAnswerText('')
+  }
+
+  const markAnswerUnknown = () => {
+    if (!activeQuestion || isSubmitting) return
+    onSearch({
+      ...buildBaseRequest(query),
+      clarification_answer: {
+        slot: activeQuestion.slot,
+        explicit_unknown: true,
+      },
     })
   }
 
-  const toggleQuality = (quality: string) => {
-    setSelectedQualities(prev => 
-      prev.includes(quality) 
-        ? prev.filter(q => q !== quality) 
-        : [...prev, quality]
-    )
+  const startEditingChip = (chip: ClarificationRecapChip) => {
+    setEditingSlot(chip.slot)
+    setEditedValue(formatEditableDefault(chip))
+  }
+
+  const saveChipEdit = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!activeChip || !editedValue.trim() || isSubmitting) return
+
+    onSearch({
+      ...buildBaseRequest(query),
+      recap_edit: {
+        slot: activeChip.slot,
+        edited_value: editedValue.trim(),
+        explicit_unknown: false,
+      },
+    })
+
+    setEditingSlot(null)
+    setEditedValue('')
+  }
+
+  const markChipUnknown = () => {
+    if (!activeChip || isSubmitting) return
+
+    onSearch({
+      ...buildBaseRequest(query),
+      recap_edit: {
+        slot: activeChip.slot,
+        explicit_unknown: true,
+      },
+    })
+
+    setEditingSlot(null)
+    setEditedValue('')
+  }
+
+  const continueToRecommendations = () => {
+    if (!complete || isSubmitting) return
+    onSearch(buildBaseRequest(query))
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto rounded-none border-none shadow-2xl overflow-hidden group">
-      <CardContent className="p-0">
-        <form onSubmit={handleSubmit} className="flex flex-col">
-          <div className="flex items-center bg-white p-2">
-            <div className="pl-4 pr-2 text-muted-foreground group-focus-within:text-primary transition-colors">
-              <Search size={20} strokeWidth={1.5} />
-            </div>
-            <Input
-              placeholder="Where do you want to go? Type naturally..."
+    <Card className="border-primary/10 bg-white/90 shadow-2xl shadow-primary/5 backdrop-blur">
+      <CardHeader className="space-y-4 border-b border-primary/10 bg-gradient-to-r from-white via-sakura/40 to-white">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-primary/70">
+          Conversational Clarification
+        </p>
+        <CardTitle className="text-[28px] font-semibold leading-[1.2] text-sumi">
+          Tell us your travel intent, then answer one follow-up at a time.
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-8 pt-8">
+        <form className="space-y-4" onSubmit={handleBegin}>
+          <label className="space-y-2 text-sm font-normal leading-[1.4] text-sumi">
+            Travel prompt
+            <textarea
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 border-none shadow-none focus-visible:ring-1 focus-visible:ring-primary/20 text-lg py-8 placeholder:text-muted-foreground/50 placeholder:font-light font-light"
+              onChange={(event) => setQuery(event.target.value)}
+              rows={4}
+              className="min-h-32 w-full rounded-lg border border-border bg-white px-3 py-2 text-base leading-[1.5] text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="I want a warm beach trip in June with a moderate budget."
             />
-            <Button 
-              type="submit" 
-              className="rounded-none px-10 py-8 h-auto bg-primary hover:bg-indigo-jp transition-all text-sm uppercase tracking-widest font-bold"
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              className="h-11 min-w-44 bg-primary text-white hover:bg-indigo-jp"
+              disabled={!canBegin || isSubmitting}
+              type="submit"
             >
-              Search
+              {isSubmitting ? 'Submitting…' : 'Submit travel intent'}
             </Button>
-          </div>
-
-          {(showDates || showQualities) && (
-            <div className="bg-white border-t border-border p-6 space-y-6 animate-in fade-in slide-in-from-top-2">
-              {showDates && (
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-primary/60">Date Range</label>
-                    {dateRange && (
-                      <button type="button" onClick={() => setDateRange(undefined)} className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1">
-                        <X size={10} /> Clear
-                      </button>
-                    )}
-                  </div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="date"
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal rounded-none border-border hover:bg-sakura/5",
-                          !dateRange && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateRange?.from ? (
-                          dateRange.to ? (
-                            <>
-                              {format(dateRange.from, "LLL dd, y")} -{" "}
-                              {format(dateRange.to, "LLL dd, y")}
-                            </>
-                          ) : (
-                            format(dateRange.from, "LLL dd, y")
-                          )
-                        ) : (
-                          <span>Pick a date range</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 rounded-none border-border" align="start">
-                      <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={dateRange?.from}
-                        selected={dateRange}
-                        onSelect={setDateRange}
-                        numberOfMonths={2}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              )}
-              
-              {showQualities && (
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-primary/60">Desired Qualities</label>
-                    {selectedQualities.length > 0 && (
-                      <button type="button" onClick={() => setSelectedQualities([])} className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1">
-                        <X size={10} /> Clear All
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {AVAILABLE_QUALITIES.map(q => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => toggleQuality(q)}
-                        className={cn(
-                          "px-4 py-1.5 text-[10px] uppercase tracking-tighter rounded-full border transition-all",
-                          selectedQualities.includes(q)
-                            ? "bg-primary text-primary-foreground border-primary shadow-md"
-                            : "bg-muted text-muted-foreground border-border hover:bg-sakura/20 hover:border-sakura/40"
-                        )}
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="bg-sakura/10 px-6 py-2 flex justify-between items-center border-t border-sakura/20">
-            <span className="text-[10px] text-primary uppercase tracking-wider font-medium">
-              Flexible Search Enabled
-            </span>
-            <div className="flex gap-4">
-               <button 
-                type="button" 
-                onClick={() => setShowDates(!showDates)}
-                className={cn("text-[10px] uppercase tracking-wider transition-colors", showDates ? "text-primary font-bold" : "text-muted-foreground hover:text-primary")}
-               >
-                {dateRange?.from ? (
-                  dateRange.to ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}` : format(dateRange.from, "MMM dd")
-                ) : "Add Dates"}
-               </button>
-               <button 
-                type="button" 
-                onClick={() => setShowQualities(!showQualities)}
-                className={cn("text-[10px] uppercase tracking-wider transition-colors", showQualities ? "text-primary font-bold" : "text-muted-foreground hover:text-primary")}
-               >
-                {selectedQualities.length > 0 ? `${selectedQualities.length} Qualities` : "Qualities"}
-               </button>
-            </div>
+            {!clarificationState && (
+              <p className="text-base font-normal leading-[1.5] text-muted-foreground">
+                {EMPTY_COPY_BODY}
+              </p>
+            )}
           </div>
         </form>
+
+        {!clarificationState && (
+          <section className="rounded-2xl border border-border/80 bg-[#FEE2E2] p-6">
+            <h2 className="text-[20px] font-semibold leading-[1.2] text-sumi">{EMPTY_COPY_HEADING}</h2>
+            <p className="mt-2 text-base font-normal leading-[1.5] text-muted-foreground">{EMPTY_COPY_BODY}</p>
+          </section>
+        )}
+
+        {activeQuestion && (
+          <section className="space-y-4 rounded-2xl border border-primary/20 bg-[#FEE2E2] p-6">
+            <h2 className="text-[20px] font-semibold leading-[1.2] text-sumi">{activeQuestion.prompt}</h2>
+            {activeQuestion.helper_text ? (
+              <p className="text-base font-normal leading-[1.5] text-muted-foreground">
+                {activeQuestion.helper_text}
+              </p>
+            ) : null}
+            <form className="space-y-3" onSubmit={handleAnswerSubmit}>
+              <label className="space-y-2 text-sm font-normal leading-[1.4] text-sumi">
+                Your answer
+                <Input
+                  value={answerText}
+                  onChange={(event) => setAnswerText(event.target.value)}
+                  placeholder="Type your answer in plain language."
+                />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={!canSubmitAnswer || isSubmitting} type="submit">
+                  {isSubmitting ? 'Saving…' : 'Submit answer'}
+                </Button>
+                <Button
+                  aria-label="I don't know this yet"
+                  disabled={isSubmitting}
+                  onClick={markAnswerUnknown}
+                  title="Set this clarification as unknown"
+                  type="button"
+                  variant="outline"
+                >
+                  I don&apos;t know this yet
+                </Button>
+              </div>
+            </form>
+          </section>
+        )}
+
+        {clarificationState && recapChips.length > 0 && (
+          <section className="space-y-4 rounded-2xl border border-border/80 bg-[#FEE2E2] p-6">
+            <h2 className="text-[20px] font-semibold leading-[1.2] text-sumi">Constraint recap</h2>
+            <div className="flex flex-wrap gap-2">
+              {recapChips.map((chip) => (
+                <span
+                  key={chip.slot}
+                  className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white px-3 py-2 text-sm font-normal leading-[1.4] text-sumi"
+                >
+                  <span>
+                    {chip.label}: {chip.value_label}
+                  </span>
+                  {chip.editable && (
+                    <Button
+                      aria-label={`Edit ${chip.label}`}
+                      className="h-11 min-w-11 px-3 text-primary"
+                      disabled={isSubmitting}
+                      onClick={() => startEditingChip(chip)}
+                      title={`Edit ${chip.label}`}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <PencilLine className="size-4" />
+                      <span className="sm:hidden">Edit</span>
+                    </Button>
+                  )}
+                </span>
+              ))}
+            </div>
+
+            {activeChip && (
+              <form
+                className="space-y-3 rounded-xl border border-primary/20 bg-white p-4"
+                onSubmit={saveChipEdit}
+              >
+                <label className="space-y-2 text-sm font-normal leading-[1.4] text-sumi">
+                  {slotToInputLabel(activeChip)}
+                  <Input
+                    aria-label={slotToInputLabel(activeChip)}
+                    onChange={(event) => setEditedValue(event.target.value)}
+                    value={editedValue}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    aria-label={`Save ${activeChip.label} edit`}
+                    disabled={!editedValue.trim() || isSubmitting}
+                    type="submit"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    aria-label={`Mark ${activeChip.label} unknown`}
+                    disabled={isSubmitting}
+                    onClick={markChipUnknown}
+                    title={`Mark ${activeChip.label} as unknown`}
+                    type="button"
+                    variant="outline"
+                  >
+                    I don&apos;t know
+                  </Button>
+                  <Button
+                    disabled={isSubmitting}
+                    onClick={() => setEditingSlot(null)}
+                    type="button"
+                    variant="ghost"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )}
+          </section>
+        )}
+
+        {complete && (
+          <div className="flex justify-end border-t border-border/80 pt-4">
+            <Button
+              className="h-11 min-w-56 bg-primary text-white hover:bg-indigo-jp"
+              disabled={isSubmitting}
+              onClick={continueToRecommendations}
+              type="button"
+            >
+              Continue to Recommendations
+            </Button>
+          </div>
+        )}
+
+        {clarificationState && !activeQuestion && !complete && (
+          <section className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+            <p className="text-base font-normal leading-[1.5] text-destructive">
+              We couldn’t process that answer. Rephrase it in plain language, or set the constraint manually in
+              the recap chips and continue.
+            </p>
+          </section>
+        )}
       </CardContent>
     </Card>
   )
 }
-
-export default SearchForm
