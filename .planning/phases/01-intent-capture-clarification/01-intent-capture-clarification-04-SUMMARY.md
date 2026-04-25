@@ -88,7 +88,7 @@ Each task was committed atomically:
 - **Fix:** Used direct git fallback with `git add -f` for the summary artifact and normal add for `STATE.md`.
 - **Files modified:** `.planning/phases/01-intent-capture-clarification/01-intent-capture-clarification-04-SUMMARY.md`, `.planning/STATE.md`
 - **Verification:** `git --no-pager log --oneline -1` contains docs commit with summary + state.
-- **Committed in:** pending metadata commit
+- **Committed in:** `e12dc4a`
 
 ---
 
