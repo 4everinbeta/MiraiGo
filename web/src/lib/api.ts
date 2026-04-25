@@ -29,6 +29,12 @@ export interface ClarificationBudgetRange {
   currency_code: string
 }
 
+export interface WeatherPreference {
+  temperature?: 'warm' | 'cool' | 'pleasant' | null
+  precipitation?: 'avoid_rain' | 'rain_ok' | null
+  source_text?: string | null
+}
+
 export interface ClarificationSlotState {
   slot: ClarificationSlot
   value_label?: string | null
@@ -84,6 +90,7 @@ export interface ConstraintUpdates {
   date_range?: SearchDateRange
   trip_length_days?: number
   budget_range?: ClarificationBudgetRange
+  weather_preference?: WeatherPreference
   explicit_unknown_slots: ClarificationSlot[]
 }
 
@@ -93,6 +100,9 @@ export interface SearchRequest {
   destination?: string
   origin?: string
   date_range?: SearchDateRange
+  trip_length_days?: number
+  budget_range?: ClarificationBudgetRange
+  weather_preference?: WeatherPreference
   travelers: TravelerCounts
   stay_filters: StayFilters
   flight_filters: FlightFilters
@@ -158,6 +168,9 @@ export interface SearchResponse {
     destination?: string | null
     origin?: string | null
     date_range?: SearchDateRange | null
+    trip_length_days?: number | null
+    budget_range?: ClarificationBudgetRange | null
+    weather_preference?: WeatherPreference | null
     travelers: TravelerCounts
     stay_filters: StayFilters
     flight_filters: FlightFilters

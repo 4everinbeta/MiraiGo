@@ -17,6 +17,7 @@ interface SearchFormProps {
   onSearch: (params: SearchRequest) => void
   isSubmitting?: boolean
   clarificationState?: ClarificationState | null
+  preservedRequest?: Partial<SearchRequest> | null
 }
 
 const DEFAULT_AMENITIES = ['wifi']
@@ -64,6 +65,7 @@ export default function SearchForm({
   onSearch,
   isSubmitting = false,
   clarificationState = null,
+  preservedRequest = null,
 }: SearchFormProps) {
   const [query, setQuery] = useState('')
   const [answerText, setAnswerText] = useState('')
@@ -153,7 +155,11 @@ export default function SearchForm({
 
   const continueToRecommendations = () => {
     if (!complete || isSubmitting) return
-    onSearch(buildBaseRequest(query))
+    onSearch({
+      ...buildBaseRequest(query),
+      ...preservedRequest,
+      query: query.trim() || preservedRequest?.query || undefined,
+    })
   }
 
   return (

@@ -18,6 +18,9 @@ interface TurnSessionState {
   destination?: string
   origin?: string
   date_range?: SearchRequest['date_range']
+  trip_length_days?: SearchRequest['trip_length_days']
+  budget_range?: SearchRequest['budget_range']
+  weather_preference?: SearchRequest['weather_preference']
   travelers: SearchRequest['travelers']
   stay_filters: SearchRequest['stay_filters']
   flight_filters: SearchRequest['flight_filters']
@@ -46,6 +49,9 @@ function resolveTurnRequest(
     destination: incoming.destination ?? previous?.destination,
     origin: incoming.origin ?? previous?.origin,
     date_range: incoming.date_range ?? previous?.date_range,
+    trip_length_days: incoming.trip_length_days ?? previous?.trip_length_days,
+    budget_range: incoming.budget_range ?? previous?.budget_range,
+    weather_preference: incoming.weather_preference ?? previous?.weather_preference,
     travelers: incoming.travelers ?? base.travelers,
     stay_filters: {
       max_price: incoming.stay_filters.max_price ?? base.stay_filters.max_price,
@@ -109,6 +115,11 @@ export default function Home() {
         destination: nextResponse.applied_filters.destination ?? undefined,
         origin: nextResponse.applied_filters.origin ?? undefined,
         date_range: nextResponse.applied_filters.date_range ?? undefined,
+        trip_length_days:
+          nextResponse.applied_filters.trip_length_days ?? turnRequest.trip_length_days ?? undefined,
+        budget_range: nextResponse.applied_filters.budget_range ?? turnRequest.budget_range ?? undefined,
+        weather_preference:
+          nextResponse.applied_filters.weather_preference ?? turnRequest.weather_preference ?? undefined,
         travelers: turnRequest.travelers,
         stay_filters: turnRequest.stay_filters,
         flight_filters: turnRequest.flight_filters,
@@ -155,6 +166,7 @@ export default function Home() {
         <SearchForm
           clarificationState={clarificationState}
           isSubmitting={isSubmitting}
+          preservedRequest={turnSession}
           onSearch={handleSearch}
         />
 
