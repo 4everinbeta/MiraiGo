@@ -142,3 +142,106 @@ async def test_prefetch_requires_destination_and_timeline_without_bypassing_visi
 
     assert response_without_timeline.results == []
     assert provider.search_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_dual_provider_interleave_is_deterministic():
+    service = SearchService()
+    service.providers = [
+        FakeFlightProvider(
+            provider_name="amadeus",
+            display_name="Amadeus",
+            results=[
+                _flight_result("amadeus", "Amadeus", score=95.0, price=410.0),
+                _flight_result("amadeus", "Amadeus", score=70.0, price=450.0),
+            ],
+        ),
+        FakeFlightProvider(
+            provider_name="duffel",
+            display_name="Duffel",
+            results=[
+                _flight_result("duffel", "Duffel", score=90.0, price=430.0),
+                _flight_result("duffel", "Duffel", score=65.0, price=490.0),
+            ],
+        ),
+    ]
+    request = _resolved_flight_request().model_copy(update={"origin": "DEN"})
+
+    first = await service.search(request)
+    second = await service.search(request)
+
+    first_order = [f"{item.provider}:{item.score}" for item in first.results]
+    second_order = [f"{item.provider}:{item.score}" for item in second.results]
+    assert first_order == ["amadeus:95.0", "duffel:90.0", "amadeus:70.0", "duffel:65.0"]
+    assert second_order == first_order
+
+
+@pytest.mark.asyncio
+async def test_partial_failure_returns_other_provider_results():
+    service = SearchService()
+    service.providers = [
+        FakeFlightProvider(
+            provider_name="amadeus",
+            display_name="Amadeus",
+            results=[_flight_result("amadeus", "Amadeus", score=88.0, price=420.0)],
+        ),
+        FakeFlightProvider(
+            provider_name="duffel",
+            display_name="Duffel",
+            error_message="supplier outage",
+        ),
+    ]
+    request = _resolved_flight_request().model_copy(update={"origin": "DEN"})
+
+    response = await service.search(request)
+
+    assert [result.provider for result in response.results] == ["amadeus"]
+    assert any("Duffel flight search unavailable: supplier outage" in warning for warning in response.warnings)
+    duffel_status = next(status for status in response.provider_status if status.provider == "duffel")
+    assert duffel_status.healthy is False
+    assert duffel_status.reason == "supplier outage"
+
+
+@pytest.mark.asyncio
+async def test_provider_timeout_returns_partial_success_with_warning():
+    service = SearchService()
+    service.providers = [
+        FakeFlightProvider(
+            provider_name="amadeus",
+            display_name="Amadeus",
+            results=[_flight_result("amadeus", "Amadeus", score=90.0, price=410.0)],
+        ),
+        FakeFlightProvider(
+            provider_name="duffel",
+            display_name="Duffel",
+            delay_seconds=0.3,
+        ),
+    ]
+    request = _resolved_flight_request().model_copy(update={"origin": "DEN"})
+
+    response = await service.search(request)
+
+    assert [result.provider for result in response.results] == ["amadeus"]
+    assert any("timed out after" in warning for warning in response.warnings)
+
+
+@pytest.mark.asyncio
+async def test_interleave_tiebreak_uses_provider_registry_order():
+    service = SearchService()
+    service.providers = [
+        FakeFlightProvider(
+            provider_name="amadeus",
+            display_name="Amadeus",
+            results=[_flight_result("amadeus", "Amadeus", score=80.0, price=400.0)],
+        ),
+        FakeFlightProvider(
+            provider_name="duffel",
+            display_name="Duffel",
+            results=[_flight_result("duffel", "Duffel", score=80.0, price=410.0)],
+        ),
+    ]
+    request = _resolved_flight_request().model_copy(update={"origin": "DEN"})
+
+    response = await service.search(request)
+
+    assert [result.provider for result in response.results] == ["amadeus", "duffel"]
