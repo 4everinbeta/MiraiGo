@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 import hashlib
 import json
 import logging
@@ -71,9 +72,20 @@ class SearchService:
     async def search(self, request: SearchRequest, db=None) -> SearchResponse:
         resolved_request, warnings, clarification_state = self._resolve_request(request)
         search_id = str(uuid.uuid4())
+        prefetch_executions: list[ProviderExecution] = []
 
         if clarification_state and not clarification_state.all_critical_slots_resolved:
+            prefetch_executions = await self._prefetch_flights_if_eligible(
+                resolved_request,
+                allow_visible_flights=False,
+            )
+            warnings.extend(
+                self._build_execution_warnings(
+                    prefetch_executions, include_empty_flight_warning=False
+                )
+            )
             statuses = await self.provider_status()
+            statuses = self._apply_execution_status(statuses, prefetch_executions)
             return SearchResponse(
                 search_id=search_id,
                 query=resolved_request.query or request.query or "",
@@ -85,23 +97,43 @@ class SearchService:
                 clarification_state=clarification_state,
             )
 
+        visible_inventory = list(resolved_request.inventory)
+        allow_visible_flights, flight_gate_warning = self._can_show_flights(resolved_request)
+        if InventoryType.FLIGHT in visible_inventory and not allow_visible_flights:
+            visible_inventory = [
+                inventory for inventory in visible_inventory if inventory != InventoryType.FLIGHT
+            ]
+            if flight_gate_warning:
+                warnings.append(flight_gate_warning)
+
+        prefetch_executions = await self._prefetch_flights_if_eligible(
+            resolved_request,
+            allow_visible_flights=allow_visible_flights,
+        )
+
         tasks = []
         for provider in self.providers:
-            for inventory_type in resolved_request.inventory:
+            for inventory_type in visible_inventory:
                 if provider.supports_inventory(inventory_type):
-                    tasks.append(self._execute_provider(provider, resolved_request, inventory_type))
+                    tasks.append(
+                        self._execute_provider(provider, resolved_request, inventory_type)
+                    )
 
         executions = await asyncio.gather(*tasks)
+        all_executions = [*executions, *prefetch_executions]
         statuses = await self.provider_status()
+        statuses = self._apply_execution_status(statuses, all_executions)
         results: list[SearchResult] = []
         for execution in executions:
             results.extend(execution.results)
-            if execution.error_message:
-                warnings.append(
-                    f"{execution.provider.display_name} {execution.inventory_type.value} search unavailable: {execution.error_message}"
-                )
+        warnings.extend(self._build_execution_warnings(executions))
+        warnings.extend(
+            self._build_execution_warnings(
+                prefetch_executions, include_empty_flight_warning=False
+            )
+        )
 
-        ranked_results = self._rank_results(results)
+        ranked_results = self._merge_results(results)
         response = SearchResponse(
             search_id=search_id,
             query=resolved_request.query or "",
@@ -113,7 +145,7 @@ class SearchService:
             clarification_state=clarification_state,
         )
         self._cache_response(resolved_request, response)
-        self._record_search(db, response, resolved_request, executions)
+        self._record_search(db, response, resolved_request, all_executions)
         return response
 
     def _resolve_request(self, request: SearchRequest) -> tuple[SearchRequest, list[str], ClarificationState]:
@@ -622,7 +654,13 @@ class SearchService:
         if "from " not in lowered:
             return None
         fragment = query[lowered.index("from ") + 5 :]
-        origin = fragment.split(" to ")[0].split(" on ")[0].split(" leaving ")[0].strip()
+        lowered_fragment = fragment.lower()
+        cut_at = len(fragment)
+        for separator in (" to ", " on ", " leaving ", " for ", " with ", " in "):
+            index = lowered_fragment.find(separator)
+            if index != -1:
+                cut_at = min(cut_at, index)
+        origin = fragment[:cut_at].strip(" ,.")
         return origin or None
 
     async def _execute_provider(
@@ -654,7 +692,11 @@ class SearchService:
             )
 
         try:
-            results = await provider.search(request, inventory_type)
+            deadline_seconds = self._provider_deadline_seconds(provider, inventory_type)
+            results = await asyncio.wait_for(
+                provider.search(request, inventory_type),
+                timeout=deadline_seconds,
+            )
             self._cache_provider_results(provider, request, inventory_type, results)
             return ProviderExecution(
                 provider=provider,
@@ -664,6 +706,17 @@ class SearchService:
                 duration_ms=int((time.perf_counter() - start) * 1000),
                 result_count=len(results),
                 results=results,
+            )
+        except TimeoutError:
+            return ProviderExecution(
+                provider=provider,
+                inventory_type=inventory_type,
+                configured=True,
+                cache_hit=False,
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                result_count=0,
+                results=[],
+                error_message=f"timed out after {self._provider_deadline_seconds(provider, inventory_type):.1f}s deadline",
             )
         except ProviderError as exc:
             logger.warning("Provider search failed: %s", exc)
@@ -678,6 +731,108 @@ class SearchService:
                 error_message=str(exc),
             )
 
+    def _provider_deadline_seconds(
+        self, provider: TravelProvider, inventory_type: InventoryType
+    ) -> float:
+        if (
+            provider.provider_name == "amadeus"
+            and inventory_type == InventoryType.FLIGHT
+        ):
+            return max(0.1, settings.AMADEUS_REQUEST_DEADLINE_SECONDS)
+        return max(0.1, provider.timeout_seconds)
+
+    async def _prefetch_flights_if_eligible(
+        self, request: SearchRequest, *, allow_visible_flights: bool
+    ) -> list[ProviderExecution]:
+        if allow_visible_flights:
+            return []
+        if not self._flight_prefetch_eligible(request):
+            return []
+        tasks = [
+            self._execute_provider(provider, request, InventoryType.FLIGHT)
+            for provider in self.providers
+            if provider.supports_inventory(InventoryType.FLIGHT)
+        ]
+        if not tasks:
+            return []
+        return await asyncio.gather(*tasks)
+
+    def _flight_prefetch_eligible(self, request: SearchRequest) -> bool:
+        return bool(
+            InventoryType.FLIGHT in request.inventory
+            and request.destination
+            and request.date_range
+            and request.date_range.start
+        )
+
+    def _can_show_flights(self, request: SearchRequest) -> tuple[bool, str | None]:
+        if InventoryType.FLIGHT not in request.inventory:
+            return False, None
+        if not request.destination or not request.origin or not request.date_range:
+            return False, (
+                "Flight results are waiting on origin, destination, and date range confirmation."
+            )
+        if not self._is_stable_clarification_turn(request):
+            return False, "Flight results will appear after clarification updates are confirmed."
+        return True, None
+
+    def _is_stable_clarification_turn(self, request: SearchRequest) -> bool:
+        return (
+            request.clarification_answer is None
+            and request.recap_edit is None
+            and request.constraint_updates is None
+        )
+
+    def _build_execution_warnings(
+        self,
+        executions: list[ProviderExecution],
+        *,
+        include_empty_flight_warning: bool = True,
+    ) -> list[str]:
+        warnings: list[str] = []
+        for execution in executions:
+            if execution.error_message:
+                warnings.append(
+                    f"{execution.provider.display_name} {execution.inventory_type.value} search unavailable: {execution.error_message}"
+                )
+            elif (
+                include_empty_flight_warning
+                and execution.inventory_type == InventoryType.FLIGHT
+                and execution.configured
+                and execution.result_count == 0
+            ):
+                warnings.append(
+                    f"{execution.provider.display_name} returned no flight offers for the selected route and dates."
+                )
+        return warnings
+
+    def _apply_execution_status(
+        self, statuses: list[ProviderStatus], executions: list[ProviderExecution]
+    ) -> list[ProviderStatus]:
+        if not executions:
+            return statuses
+
+        status_map = {status.provider: status for status in statuses}
+        for execution in executions:
+            current = status_map.get(execution.provider.provider_name)
+            if current is None:
+                continue
+            if execution.error_message:
+                status_map[current.provider] = current.model_copy(
+                    update={
+                        "healthy": False,
+                        "reason": execution.error_message,
+                    }
+                )
+            elif not execution.configured:
+                status_map[current.provider] = current.model_copy(
+                    update={
+                        "healthy": False,
+                        "reason": execution.error_message or execution.provider.unconfigured_reason,
+                    }
+                )
+        return [status_map[status.provider] for status in statuses]
+
     def _rank_results(self, results: list[SearchResult]) -> list[SearchResult]:
         def sort_key(item: SearchResult) -> tuple[float, float]:
             penalty = 0.0
@@ -686,6 +841,39 @@ class SearchService:
             return (-item.score, item.total_price + penalty)
 
         return sorted(results, key=sort_key)
+
+    def _merge_results(self, results: list[SearchResult]) -> list[SearchResult]:
+        flight_results = [
+            result for result in results if isinstance(result, FlightSearchResult)
+        ]
+        other_results = [
+            result for result in results if not isinstance(result, FlightSearchResult)
+        ]
+        merged_flights = self._deterministic_flight_interleave(flight_results)
+        return [*merged_flights, *self._rank_results(other_results)]
+
+    def _deterministic_flight_interleave(
+        self, results: list[FlightSearchResult]
+    ) -> list[FlightSearchResult]:
+        if len(results) <= 1:
+            return results
+
+        provider_queues: dict[str, deque[FlightSearchResult]] = {}
+        for result in results:
+            provider_queues.setdefault(result.provider, deque()).append(result)
+
+        merged: list[FlightSearchResult] = []
+        while True:
+            candidates = [
+                (queue[0].score, provider)
+                for provider, queue in provider_queues.items()
+                if queue
+            ]
+            if not candidates:
+                break
+            _, winner = max(candidates, key=lambda item: (item[0], item[1]))
+            merged.append(provider_queues[winner].popleft())
+        return merged
 
     def _provider_cache_key(
         self, provider: TravelProvider, request: SearchRequest, inventory_type: InventoryType
