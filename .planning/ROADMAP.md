@@ -91,7 +91,7 @@ Plans:
 | 6. Fix intent extraction for timeline and destination parsing | 1/1 | Complete | 06-01-PLAN.md |
 | 7. Enhanced NLP | 0/TBD | Not started | - |
 | 8. Intent Verification Closure | 3/3 | Complete | 08-01-PLAN.md, 08-02-PLAN.md, 08-03-PLAN.md |
-| 9. Milestone Integration & Validation Backfill | 0/TBD | Not started | - |
+| 9. Milestone Integration & Validation Backfill | 1/3 | In progress | 09-01-PLAN.md |
 
 ### Phase 6: Fix intent extraction for timeline and destination parsing
 
@@ -135,4 +135,9 @@ Plans:
 **Requirements**: INTENT-01, INTENT-02, INTENT-03, INTENT-04
 **Depends on:** Phase 8
 **Gap Closure:** Closes integration/flow/Nyquist gaps from milestone audit (`v1.0-v1.0-MILESTONE-AUDIT.md`)
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [x] 09-01-PLAN.md — Fix clarification slot parity (`weather`) across frontend/backend contracts and regression tests
+- [ ] 09-02-PLAN.md — Backfill Nyquist validation artifact for Phase 06 and verify gate alignment
+- [ ] 09-03-PLAN.md — Normalize verification frontmatter status fields (06/07) and refresh milestone audit determinism
