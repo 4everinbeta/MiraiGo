@@ -74,6 +74,19 @@ class DisabledProvider(TravelProvider):
         return []
 
 
+class EmptyFlightProvider(TravelProvider):
+    provider_name = "emptyflight"
+    display_name = "Empty Flight"
+    inventory_types = (InventoryType.FLIGHT,)
+
+    @property
+    def is_configured(self) -> bool:
+        return True
+
+    async def search(self, request: SearchRequest, inventory_type: InventoryType):
+        return []
+
+
 def test_post_search_returns_canonical_results(fake_redis, db_session):
     search_service.providers = [ConfiguredProvider(), DisabledProvider()]
 
@@ -152,3 +165,108 @@ def test_post_search_returns_clarification_state_with_weather(fake_redis):
     assert payload["clarification_state"] is not None
     assert payload["clarification_state"]["weather"] is not None
     assert payload["clarification_state"]["weather"]["source_text"] in {"warm weather", "warm"}
+
+
+def test_post_search_warns_when_flight_provider_returns_no_offers(fake_redis):
+    search_service.providers = [EmptyFlightProvider()]
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Barcelona trip from Denver",
+            "destination": "Barcelona",
+            "origin": "Denver",
+            "inventory": ["flight"],
+            "date_range": {"start": "2026-05-03", "end": "2026-05-08"},
+            "trip_length_days": 5,
+            "budget_range": {"minimum": 800, "maximum": 2000, "currency_code": "USD"},
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["results"] == []
+    assert any("returned no flight offers" in warning for warning in payload["warnings"])
+
+
+def test_post_search_multilingual_destination_and_synonym_keep_clarification_flow(fake_redis):
+    search_service.providers = [DisabledProvider()]
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Quiero un viaje economico para lisboa con playa",
+            "inventory": ["stay"],
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["clarification_state"] is not None
+    assert payload["clarification_state"]["destination"] is not None
+    assert payload["clarification_state"]["destination"]["value_label"] == "Lisboa"
+    assert payload["clarification_state"]["next_question"] is not None
+    assert payload["clarification_state"]["next_question"]["slot"] != "destination"
+
+
+def test_search_handles_follow_up_clarification_turn(fake_redis):
+    search_service.providers = [DisabledProvider()]
+
+    first_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Warm beach trip in June",
+            "destination": "Honolulu",
+            "date_range": {"start": "2026-06-10", "end": "2026-06-17"},
+            "inventory": ["stay"],
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["clarification_state"] is not None
+    assert first_payload["clarification_state"]["next_question"] is not None
+    assert first_payload["clarification_state"]["next_question"]["slot"] == "trip_length"
+
+    follow_up_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Warm beach trip in June",
+            "destination": "Honolulu",
+            "date_range": {"start": "2026-06-10", "end": "2026-06-17"},
+            "trip_length_days": 7,
+            "clarification_answer": {
+                "slot": "trip_length",
+                "answer_text": "7 days",
+                "explicit_unknown": False,
+            },
+            "inventory": ["stay"],
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+
+    assert follow_up_response.status_code == 200
+    follow_up_payload = follow_up_response.json()
+    assert follow_up_payload["clarification_state"] is not None
+    assert follow_up_payload["clarification_state"]["trip_length"]["value_label"] is not None
+    assert follow_up_payload["clarification_state"]["next_question"] is not None
+    assert follow_up_payload["clarification_state"]["next_question"]["slot"] == "timeline"
