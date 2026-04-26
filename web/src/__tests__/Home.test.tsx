@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import Home from '../app/page'
 import { fetchProviderStatuses, searchTrips } from '@/lib/api'
+import type { SearchResponse } from '@/lib/api'
 
 jest.mock('@/lib/api', () => ({
   fetchProviderStatuses: jest.fn(),
@@ -40,6 +41,73 @@ describe('Home Page Integration', () => {
     await waitFor(() => {
       expect(screen.getByText('Duffel')).toBeInTheDocument()
     })
+  })
+
+  it('keeps weather slot on typed clarification fixtures', () => {
+    const typedClarificationFixture: SearchResponse = {
+      search_id: 'typed-fixture',
+      query: 'Warm trip',
+      requested_inventory: ['stay'],
+      applied_filters: {
+        destination: 'Lisbon',
+        origin: null,
+        date_range: { start: '2026-06-01', end: '2026-06-07' },
+        trip_length_days: 6,
+        budget_range: { minimum: 1000, maximum: 2000, currency_code: 'USD' },
+        weather_preference: {
+          temperature: 'warm',
+          precipitation: 'avoid_rain',
+          source_text: 'warm and dry',
+        },
+        travelers: { adults: 1, children: 0, infants: 0 },
+        stay_filters: { amenities: [] },
+        flight_filters: { nonstop: false },
+      },
+      provider_status: [],
+      warnings: [],
+      results: [],
+      clarification_state: {
+        destination: {
+          slot: 'destination',
+          value_label: 'Lisbon',
+          confidence: 1,
+          ambiguous: false,
+          explicit_unknown: false,
+          source: 'user',
+        },
+        timeline: {
+          slot: 'timeline',
+          value_label: 'June',
+          confidence: 1,
+          ambiguous: false,
+          explicit_unknown: false,
+          source: 'user',
+        },
+        trip_length: {
+          slot: 'trip_length',
+          value_label: '6 days',
+          confidence: 1,
+          ambiguous: false,
+          explicit_unknown: false,
+          source: 'user',
+        },
+        budget: {
+          slot: 'budget',
+          value_label: '$1000-$2000',
+          confidence: 1,
+          ambiguous: false,
+          explicit_unknown: false,
+          source: 'user',
+        },
+        recap: {
+          chips: [],
+          continue_label: 'Continue to Recommendations',
+        },
+        all_critical_slots_resolved: true,
+      },
+    }
+
+    expect(typedClarificationFixture.clarification_state?.weather?.slot).toBe('weather')
   })
 
   it('stores clarification response and keeps the same session across follow-up answers', async () => {
