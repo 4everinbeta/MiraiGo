@@ -7,7 +7,8 @@
 
 ### Realtime Airfare Providers
 
-- [ ] **AIR-01**: User can receive realtime flight offers from Amadeus for selected travel constraints.
+- [x] **AIR-01
+**: User can receive realtime flight offers from Amadeus for selected travel constraints.
 - [ ] **AIR-02**: User can receive realtime flight offers from Duffel for selected travel constraints.
 - [ ] **AIR-03**: User can view comparable normalized airfare fields (price, currency, stops, duration) across providers.
 - [ ] **AIR-04**: User can view freshness and provenance metadata for each airfare offer.

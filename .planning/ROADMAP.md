@@ -24,7 +24,7 @@
   1. User can run discovery with selected constraints and receive realtime flight offers sourced from Amadeus.
   2. User can run discovery with selected constraints and receive realtime flight offers sourced from Duffel.
   3. User sees airfare results returned in the same discovery flow without needing a separate flight lookup step.
-**Plans**: TBD
+**Plans**: 10-01, 10-02, 10-03
 **UI hint**: yes
 
 ### Phase 11: Airfare Normalization, Provenance, and Contracts
@@ -63,7 +63,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 10. Dual-Provider Realtime Airfare Retrieval | 0/0 | Not started | - |
+| 10. Dual-Provider Realtime Airfare Retrieval | 1/3 | In progress | - |
 | 11. Airfare Normalization, Provenance, and Contracts | 0/0 | Not started | - |
 | 12. Degraded-Mode Reliability and Clarification Continuity | 0/0 | Not started | - |
 | 13. Ranking with Live Airfare Context | 0/0 | Not started | - |
