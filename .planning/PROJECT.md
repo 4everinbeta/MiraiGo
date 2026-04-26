@@ -6,11 +6,20 @@
 - **Delivered:** End-to-end natural-language intent clarification with deterministic follow-up turns and continuity across answer/edit/continue flows.
 - **Verification posture:** INTENT-01..04 closed with automated + human evidence; milestone audit closed as `tech_debt` (non-blocking items only).
 
+## Current Milestone: v1.1 Realtime Airfare Integrations
+
+**Goal:** Add reliable realtime airfare pricing through Amadeus and Duffel so search results surface current flight cost context.
+
+**Target features:**
+- Amadeus flight pricing adapter integrated into search flow
+- Duffel flight pricing adapter integrated into search flow
+- Unified airfare normalization and provenance metadata for result comparison
+
 ## Next Milestone Goals
 
-- Deliver ranked recommendation quality and rationale (RECO-01..03, GLOB-01).
-- Add live pricing and budget trust features (PRICE-01..04, GLOB-02).
-- Add discovery filters and shortlist save/share flow (DISC-01..05).
+- Deliver flight-only realtime airfare integrations for two providers (Amadeus + Duffel).
+- Add normalization/freshness handling for cross-provider airfare comparison.
+- Keep hotels and checkout flows out of scope for this milestone.
 
 ## What This Is
 
@@ -28,11 +37,9 @@ Given vague travel intent, MiraiGo reliably converts it into personalized, ranke
 
 ### Active
 
-- [ ] User can enter free-form natural-language travel prompts and receive ranked destination suggestions.
-- [ ] MiraiGo can detect missing constraints and guide users with focused follow-up questions (geography, weather, costs, timelines).
-- [ ] Suggestions include explanation of fit for user preferences.
-- [ ] Budget support includes live real-time pricing integration for flights/hotels.
-- [ ] Destination discovery supports worldwide coverage.
+- [ ] User can receive realtime airfare context sourced from Amadeus and Duffel during discovery.
+- [ ] Airfare results include consistent normalized fields and provider freshness/provenance metadata.
+- [ ] Destination ranking can consume realtime airfare context without breaking clarification flow continuity.
 
 ### Out of Scope
 
@@ -77,4 +84,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-26 after v1.0 milestone completion*
+*Last updated: 2026-04-26 after v1.1 milestone kickoff*

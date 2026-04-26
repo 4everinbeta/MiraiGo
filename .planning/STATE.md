@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: recommendation-and-pricing-expansion
-status: v1.0 milestone complete
-stopped_at: Milestone archived
-last_updated: "2026-04-26T16:35:00.000Z"
+milestone_name: realtime-airfare-integrations
+status: defining requirements
+stopped_at: New milestone started
+last_updated: "2026-04-26T16:50:00.000Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 4
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-26)
 
 **Core value:** Given vague travel intent, MiraiGo reliably converts it into personalized, ranked destination suggestions with clear rationale.
-**Current focus:** Plan v1.1 milestone scope and requirements.
+**Current focus:** Define v1.1 realtime airfare requirements and roadmap.
 
 ## Current Position
 
-Phase: N/A (between milestones)
-Plan: N/A
-Status: v1.0 archived; waiting for `/gsd-new-milestone`
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
 Last activity: 2026-04-26
 
 Progress: [░░░░░░░░░░] 0%
@@ -104,8 +104,8 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Run `/gsd-new-milestone` to generate fresh REQUIREMENTS.md and roadmap expansion for v1.1.
-- Triage carried tech debt from v1.0 audit (compatibility route usage, optional frontend `clarification_state.history` typing).
+- Define and approve v1.1 requirements for realtime airfare integrations (Amadeus + Duffel).
+- Create v1.1 roadmap and map each requirement to a new phase.
 
 ### Blockers/Concerns
 
