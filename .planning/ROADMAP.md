@@ -90,7 +90,7 @@ Plans:
 | 5. Shortlist Save & Share | 0/TBD | Not started | - |
 | 6. Fix intent extraction for timeline and destination parsing | 1/1 | Complete | 06-01-PLAN.md |
 | 7. Enhanced NLP | 0/TBD | Not started | - |
-| 8. Intent Verification Closure | 0/TBD | Not started | - |
+| 8. Intent Verification Closure | 1/3 | In progress | 08-01-PLAN.md |
 | 9. Milestone Integration & Validation Backfill | 0/TBD | Not started | - |
 
 ### Phase 6: Fix intent extraction for timeline and destination parsing
@@ -121,7 +121,12 @@ Plans:
 **Requirements**: INTENT-01, INTENT-02, INTENT-03, INTENT-04
 **Depends on:** Phase 7
 **Gap Closure:** Closes requirement gaps from milestone audit (`v1.0-v1.0-MILESTONE-AUDIT.md`)
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [x] 08-01-PLAN.md — Enforce strict automated INTENT evidence gates and fix/retest any automated regressions
+- [ ] 08-02-PLAN.md — Run fresh human INTENT UAT with blocking checkpoint and in-phase remediation loop
+- [ ] 08-03-PLAN.md — Finalize verification/milestone traceability artifacts for INTENT closure
 
 ### Phase 9: Milestone Integration & Validation Backfill
 
