@@ -21,7 +21,7 @@ export interface FlightFilters {
   nonstop: boolean
 }
 
-export type ClarificationSlot = 'destination' | 'timeline' | 'trip_length' | 'budget'
+export type ClarificationSlot = 'destination' | 'timeline' | 'trip_length' | 'budget' | 'weather'
 
 export interface ClarificationBudgetRange {
   minimum?: number | null
@@ -68,6 +68,7 @@ export interface ClarificationState {
   timeline: ClarificationSlotState
   trip_length: ClarificationSlotState
   budget: ClarificationSlotState
+  weather?: ClarificationSlotState | null
   next_question?: ClarificationQuestion | null
   recap: ClarificationRecap
   all_critical_slots_resolved: boolean
