@@ -87,7 +87,6 @@ evidence: "Browser UAT run 2026-04-26: beach-vacation clarification sequence acc
 ## Summary
 
 total: 4
-passed: [pending]
 passed: 4
 issues: 0
 pending: 0
