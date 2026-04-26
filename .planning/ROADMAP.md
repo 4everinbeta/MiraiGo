@@ -3,11 +3,67 @@
 ## Milestones
 
 - ✅ **v1.0 Intent Clarification Foundation** — shipped 2026-04-26 ([roadmap archive](.planning/milestones/v1.0-ROADMAP.md), [requirements archive](.planning/milestones/v1.0-REQUIREMENTS.md), [audit](.planning/milestones/v1.0-MILESTONE-AUDIT.md), [phase artifacts](.planning/milestones/v1.0-phases/))
-- 🚧 **v1.1 Recommendation & Pricing Expansion** — planned
+- 🚧 **v1.1 Realtime Airfare Integrations** — roadmap created
 
-## Active Milestone (v1.1)
+## Active Milestone (v1.1 Realtime Airfare Integrations)
 
-- [ ] **Phase 2: Global Recommendation Engine** — Ranked destinations with fit explanations and feasible alternatives.
-- [ ] **Phase 3: Live Pricing & Budget Trust** — Live flight/hotel pricing with freshness and budget-fit transparency.
-- [ ] **Phase 4: Discovery Filters** — Budget/date/flight filters over ranked recommendations.
-- [ ] **Phase 5: Shortlist Save & Share** — Save, revisit, and share shortlist links.
+## Phases
+
+- [ ] **Phase 10: Dual-Provider Realtime Airfare Retrieval** - Users can receive live airfare offers from Amadeus and Duffel for their current travel constraints.
+- [ ] **Phase 11: Airfare Normalization, Provenance, and Contracts** - Users can compare cross-provider airfare results with consistent fields and metadata.
+- [ ] **Phase 12: Degraded-Mode Reliability and Clarification Continuity** - Users still get useful airfare results and keep resolved intent when a provider degrades.
+- [ ] **Phase 13: Ranking with Live Airfare Context** - Destination ranking and budget-fit use normalized realtime airfare totals.
+
+## Phase Details
+
+### Phase 10: Dual-Provider Realtime Airfare Retrieval
+**Goal**: Users can receive live airfare offers from both Amadeus and Duffel during discovery.
+**Depends on**: Phase 9
+**Requirements**: AIR-01, AIR-02
+**Success Criteria** (what must be TRUE):
+  1. User can run discovery with selected constraints and receive realtime flight offers sourced from Amadeus.
+  2. User can run discovery with selected constraints and receive realtime flight offers sourced from Duffel.
+  3. User sees airfare results returned in the same discovery flow without needing a separate flight lookup step.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 11: Airfare Normalization, Provenance, and Contracts
+**Goal**: Users can compare airfare results consistently across providers with deterministic payload shape.
+**Depends on**: Phase 10
+**Requirements**: AIR-03, AIR-04, AIR-08
+**Success Criteria** (what must be TRUE):
+  1. User can view comparable normalized airfare fields (price, currency, stops, duration) across Amadeus and Duffel offers.
+  2. User can view freshness and provenance metadata for each airfare offer.
+  3. User sees stable airfare rendering/behavior across refreshes and turns because airfare-context fields are deterministic.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 12: Degraded-Mode Reliability and Clarification Continuity
+**Goal**: Users continue receiving airfare context and keep conversation continuity even during provider degradation.
+**Depends on**: Phase 11
+**Requirements**: AIR-05, AIR-06
+**Success Criteria** (what must be TRUE):
+  1. If one provider is degraded, user still receives flight results from available sources.
+  2. When degraded mode is active, user sees explicit degraded-state signaling in results.
+  3. User can answer/edit/continue clarification turns without losing previously resolved intent while airfare updates are applied.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 13: Ranking with Live Airfare Context
+**Goal**: Users get destination ranking and budget-fit outputs that reflect normalized current airfare totals.
+**Depends on**: Phase 12
+**Requirements**: AIR-07
+**Success Criteria** (what must be TRUE):
+  1. User-facing destination ranking reflects normalized current airfare totals.
+  2. User-facing budget-fit output updates when airfare totals change.
+**Plans**: TBD
+**UI hint**: yes
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 10. Dual-Provider Realtime Airfare Retrieval | 0/0 | Not started | - |
+| 11. Airfare Normalization, Provenance, and Contracts | 0/0 | Not started | - |
+| 12. Degraded-Mode Reliability and Clarification Continuity | 0/0 | Not started | - |
+| 13. Ranking with Live Airfare Context | 0/0 | Not started | - |
