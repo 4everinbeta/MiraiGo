@@ -99,6 +99,14 @@ describe('Home Page Integration', () => {
           explicit_unknown: false,
           source: 'user',
         },
+        weather: {
+          slot: 'weather',
+          value_label: 'Warm and dry',
+          confidence: 1,
+          ambiguous: false,
+          explicit_unknown: false,
+          source: 'user',
+        },
         recap: {
           chips: [],
           continue_label: 'Continue to Recommendations',

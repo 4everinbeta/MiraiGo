@@ -164,6 +164,8 @@ def test_post_search_returns_clarification_state_with_weather(fake_redis):
     payload = response.json()
     assert payload["clarification_state"] is not None
     assert payload["clarification_state"]["weather"] is not None
+    assert payload["clarification_state"]["weather"]["slot"] == "weather"
+    assert payload["clarification_state"]["weather"]["explicit_unknown"] is False
     assert payload["clarification_state"]["weather"]["source_text"] in {"warm weather", "warm"}
 
 
