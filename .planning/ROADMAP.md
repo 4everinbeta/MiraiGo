@@ -13,7 +13,7 @@ MiraiGo v1 delivers a complete destination discovery flow: users start with a fr
 - [ ] **Phase 5: Shortlist Save & Share** - Enable users to save promising destinations and share their shortlist by link.
 - [x] **Phase 6: Fix intent extraction for timeline and destination parsing** - Improve extraction reliability for destination/timeline constraints.
 - [ ] **Phase 7: Enhanced NLP** - Improve search-intent NLP breadth, precision, and robustness for real-world phrasing.
-- [ ] **Phase 8: Intent Verification Closure** - Close unresolved INTENT requirement verification gaps from milestone audit.
+- [x] **Phase 8: Intent Verification Closure** - Closed unresolved INTENT requirement verification gaps from milestone audit.
 - [ ] **Phase 9: Milestone Integration & Validation Backfill** - Close cross-phase integration and missing validation artifacts before milestone completion.
 
 ## Phase Details
@@ -90,7 +90,7 @@ Plans:
 | 5. Shortlist Save & Share | 0/TBD | Not started | - |
 | 6. Fix intent extraction for timeline and destination parsing | 1/1 | Complete | 06-01-PLAN.md |
 | 7. Enhanced NLP | 0/TBD | Not started | - |
-| 8. Intent Verification Closure | 2/3 | In progress | 08-01-PLAN.md, 08-02-PLAN.md |
+| 8. Intent Verification Closure | 3/3 | Complete | 08-01-PLAN.md, 08-02-PLAN.md, 08-03-PLAN.md |
 | 9. Milestone Integration & Validation Backfill | 0/TBD | Not started | - |
 
 ### Phase 6: Fix intent extraction for timeline and destination parsing
@@ -122,11 +122,12 @@ Plans:
 **Depends on:** Phase 7
 **Gap Closure:** Closes requirement gaps from milestone audit (`v1.0-v1.0-MILESTONE-AUDIT.md`)
 **Plans:** 3 plans
+**Closure Status:** Complete — INTENT-01..04 now carry fresh automated + human evidence with strict `blocked: 0` and `skipped: 0` gates.
 
 Plans:
 - [x] 08-01-PLAN.md — Enforce strict automated INTENT evidence gates and fix/retest any automated regressions
 - [x] 08-02-PLAN.md — Run fresh human INTENT UAT with blocking checkpoint and in-phase remediation loop
-- [ ] 08-03-PLAN.md — Finalize verification/milestone traceability artifacts for INTENT closure
+- [x] 08-03-PLAN.md — Finalize verification/milestone traceability artifacts for INTENT closure
 
 ### Phase 9: Milestone Integration & Validation Backfill
 
