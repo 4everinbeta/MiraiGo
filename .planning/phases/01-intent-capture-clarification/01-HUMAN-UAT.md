@@ -1,13 +1,13 @@
-status: in_progress
+status: complete
 phase: 01-intent-capture-clarification
 source: [01-VERIFICATION.md, 08-02-PLAN.md]
 started: 2026-04-25T01:23:19Z
-updated: 2026-04-26T00:00:00Z
+updated: 2026-04-26T00:40:00Z
 ---
 
 ## Current Test
 
-[ready for fresh INTENT closure run]
+[testing complete]
 
 ## Tests
 
@@ -26,8 +26,8 @@ expected_ui:
 expected_api:
   - Request payload contains the free-form query string.
   - Response is HTTP 200 with either recommendations or clarification payload.
-pass_fail: [pending]
-evidence: [pending]
+pass_fail: pass
+evidence: "Browser UAT run 2026-04-26: free-form Lisbon prompt submitted without form prerequisites; `/search` returned 200 and transitioned to recommendations state without crash."
 
 ### 2. INTENT-02 — Core constraints are extracted and retained
 requirement: INTENT-02
@@ -42,8 +42,8 @@ expected_ui:
   - Recap or result context reflects destination/timeline/budget/trip-length intent from the prompt.
 expected_api:
   - Response contains structured fields corresponding to destination + timeline + budget + trip length (or a clarification question that identifies only truly missing fields).
-pass_fail: [pending]
-evidence: [pending]
+pass_fail: pass
+evidence: "Browser UAT run 2026-04-26: Porto prompt preserved destination + September timeline + affordable budget + 5-day duration in `/search` response context."
 
 ### 3. INTENT-03 — Missing critical constraints trigger focused follow-up
 requirement: INTENT-03
@@ -61,8 +61,8 @@ expected_ui:
 expected_api:
   - Clarification payload indicates one next question at a time.
   - Previously answered slot is retained in subsequent request/response turn state.
-pass_fail: [pending]
-evidence: [pending]
+pass_fail: pass
+evidence: "Browser UAT run 2026-04-26: ambiguous warm/early-summer prompt asked focused destination follow-up first; after `Destination: Greece` response, flow advanced to next unresolved slot without re-asking destination."
 
 ### 4. INTENT-04 — User can continue same turn/session after follow-up answers
 requirement: INTENT-04
@@ -81,17 +81,18 @@ expected_ui:
 expected_api:
   - Continue-turn request includes preserved resolved clarification fields.
   - Response returns recommendations or next unresolved slot, not repeated resolved-slot prompts.
-pass_fail: [pending]
-evidence: [pending]
+pass_fail: pass
+evidence: "Browser UAT run 2026-04-26: beach-vacation clarification sequence accepted `Trip length: 7 days` and `Budget: moderate`; Continue loaded recommendations in same turn with no reopened trip-length/budget prompts."
 
 ## Summary
 
 total: 4
 passed: [pending]
+passed: 4
 issues: 0
-pending: [pending]
-skipped: [pending]
-blocked: [pending]
+pending: 0
+skipped: 0
+blocked: 0
 
 ## Strict INTENT Closure Gate
 
@@ -100,3 +101,5 @@ blocked: [pending]
 - skipped must be zero for closure: required
 
 ## Gaps
+
+- none

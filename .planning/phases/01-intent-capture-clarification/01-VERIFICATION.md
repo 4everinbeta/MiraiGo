@@ -1,7 +1,7 @@
 ---
 phase: 01-intent-capture-clarification
-verified: 2026-04-25T01:23:19Z
-status: human_needed
+verified: 2026-04-26T00:40:00Z
+status: complete
 score: 8/8 must-haves verified
 overrides_applied: 0
 re_verification:
@@ -12,19 +12,17 @@ re_verification:
   gaps_remaining: []
   regressions: []
 human_verification:
-  - test: "Run full browser flow with real backend: submit vague prompt, answer trip length + budget, click Continue to Recommendations."
-    expected: "No new trip-length/budget clarification question appears; recommendations load in same turn/session."
-    why_human: "End-user continuity and interaction feel across async UI/backend transitions require manual UX validation."
-  - test: "Visually inspect recap chips, edit controls, and Continue CTA in the clarification-complete state."
-    expected: "Layout/copy/accessibility match UI contract and remain understandable without developer context."
-    why_human: "Visual hierarchy, affordance clarity, and copy quality cannot be fully verified via static/code checks."
+  - test: "Execute INTENT-01..04 browser UAT from 01-HUMAN-UAT.md with real backend/frontend."
+    expected: "All requirement-mapped checks pass with no skipped critical checks and no blockers."
+    outcome: "approved"
+    why_human: "Browser continuity, UI clarity, and real interaction flow require manual attestation."
 ---
 
 # Phase 1: Intent Capture & Clarification Verification Report
 
 **Phase Goal:** Users can express travel intent naturally and iteratively complete missing constraints without restarting.  
-**Verified:** 2026-04-25T01:23:19Z  
-**Status:** human_needed  
+**Verified:** 2026-04-26T00:40:00Z  
+**Status:** complete  
 **Re-verification:** Yes — after gap closure
 
 ## Goal Achievement
@@ -101,25 +99,24 @@ human_verification:
 | `web/src/lib/api.ts` | 24 | `ClarificationSlot` omits `'weather'` while backend enum includes it | ⚠️ Warning | Contract drift risk if weather slot is ever surfaced as a direct clarification slot in UI. |
 | `web/src/__tests__/Home.test.tsx` | whole file | API mocked end-to-end in UI tests | ℹ️ Info | Tests validate payload assembly well, but not full real backend/browser UX behavior. |
 
-### Human Verification Required
+### Human Verification Results (Fresh INTENT Closure UAT)
 
-### 1. Continue-turn UX continuity in browser
+| Requirement | Human Run Result | Evidence Source |
+| --- | --- | --- |
+| INTENT-01 | ✓ PASS | `01-HUMAN-UAT.md` test 1 |
+| INTENT-02 | ✓ PASS | `01-HUMAN-UAT.md` test 2 |
+| INTENT-03 | ✓ PASS | `01-HUMAN-UAT.md` test 3 |
+| INTENT-04 | ✓ PASS | `01-HUMAN-UAT.md` test 4 |
 
-**Test:** With real backend running, complete a clarification sequence (trip length + budget) and click **Continue to Recommendations**.  
-**Expected:** No re-opened trip length/budget prompt; recommendations load directly in same session.  
-**Why human:** Automated tests prove payload/wiring, but only manual run confirms real UX continuity and perceived non-restart behavior.
-
-### 2. Clarification recap readability and CTA clarity
-
-**Test:** Review recap chips, edit affordance, unknown actions, and continue CTA in a real browser (desktop + narrow viewport).  
-**Expected:** Controls are understandable, discoverable, and visually aligned with intended conversational flow.  
-**Why human:** Visual hierarchy and usability quality are not programmatically verifiable.
+- blocked: 0
+- skipped: 0
+- closure gate: pass
 
 ### Gaps Summary
 
-Prior gap is closed. Continue-turn request/state continuity is now implemented and covered by backend + frontend regressions. Automated verification finds no remaining phase-blocking implementation gaps; only human UX confirmation remains.
+Prior gap is closed. Continue-turn request/state continuity is implemented and now additionally confirmed by fresh browser UAT evidence with zero blockers and zero skipped INTENT-critical checks.
 
 ---
 
-_Verified: 2026-04-25T01:23:19Z_  
+_Verified: 2026-04-26T00:40:00Z_  
 _Verifier: Claude (gsd-verifier)_
