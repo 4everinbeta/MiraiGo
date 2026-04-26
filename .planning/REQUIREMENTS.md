@@ -9,7 +9,8 @@
 
 - [x] **AIR-01
 **: User can receive realtime flight offers from Amadeus for selected travel constraints.
-- [ ] **AIR-02**: User can receive realtime flight offers from Duffel for selected travel constraints.
+- [x] **AIR-02
+**: User can receive realtime flight offers from Duffel for selected travel constraints.
 - [ ] **AIR-03**: User can view comparable normalized airfare fields (price, currency, stops, duration) across providers.
 - [ ] **AIR-04**: User can view freshness and provenance metadata for each airfare offer.
 
@@ -46,8 +47,8 @@ Deferred beyond this milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AIR-01 | Phase 10 | Pending |
-| AIR-02 | Phase 10 | Pending |
+| AIR-01 | Phase 10 | Completed |
+| AIR-02 | Phase 10 | Completed |
 | AIR-03 | Phase 11 | Pending |
 | AIR-04 | Phase 11 | Pending |
 | AIR-05 | Phase 12 | Pending |
