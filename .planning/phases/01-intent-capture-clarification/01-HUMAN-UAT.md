@@ -100,6 +100,15 @@ blocked: 0
 - skipped must be zero for closure: required
 - task-3 remediation loop rerun: no-fix-needed (approved run remained green)
 
+## Final INTENT Dual-Evidence Closure Sync (Phase 08 Plan 03)
+
+| Requirement | Human UAT Result | Paired Automated Evidence | Final |
+| --- | --- | --- | --- |
+| INTENT-01 | pass (test 1) | `web/src/__tests__/Home.test.tsx` submit flow coverage | ✓ VERIFIED |
+| INTENT-02 | pass (test 2) | `src/tests/api/test_search.py` extraction/retention coverage | ✓ VERIFIED |
+| INTENT-03 | pass (test 3) | `src/tests/services/test_clarification_loop.py` focused follow-up coverage | ✓ VERIFIED |
+| INTENT-04 | pass (test 4) | API + service + UI continue-turn continuity tests | ✓ VERIFIED |
+
 ## Gaps
 
 - none

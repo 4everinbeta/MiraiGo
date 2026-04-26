@@ -113,6 +113,15 @@ human_verification:
 - closure gate: pass
 - remediation loop status: no-fix-needed (Task 3) — full INTENT automation rerun remained green
 
+### Final INTENT Dual-Evidence Closure Sync (Phase 08 Plan 03)
+
+| Requirement | Automated Evidence | Human Evidence | Final |
+| --- | --- | --- | --- |
+| INTENT-01 | `web/src/__tests__/Home.test.tsx` (prompt submit flow assertions) | `01-HUMAN-UAT.md` test 1 | ✓ VERIFIED |
+| INTENT-02 | `src/tests/api/test_search.py` multilingual/synonym extraction coverage | `01-HUMAN-UAT.md` test 2 | ✓ VERIFIED |
+| INTENT-03 | `src/tests/services/test_clarification_loop.py` priority/focus follow-up coverage | `01-HUMAN-UAT.md` test 3 | ✓ VERIFIED |
+| INTENT-04 | `src/tests/api/test_search.py` + `src/tests/services/test_clarification_loop.py` + `web/src/__tests__/Home.test.tsx` continue-turn continuity coverage | `01-HUMAN-UAT.md` test 4 | ✓ VERIFIED |
+
 ### Gaps Summary
 
 Prior gap is closed. Continue-turn request/state continuity is implemented and now additionally confirmed by fresh browser UAT evidence with zero blockers and zero skipped INTENT-critical checks.

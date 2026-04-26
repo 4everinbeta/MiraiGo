@@ -1,8 +1,8 @@
 ---
 phase: 08
 slug: intent-verification-closure
-status: draft
-nyquist_compliant: false
+status: complete
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-04-25
 ---
@@ -71,6 +71,15 @@ Existing infrastructure covers all phase requirements.
 | INTENT-03 | `src/tests/services/test_clarification_loop.py` (`test_missing_slots_are_asked_in_priority_order_one_by_one`) | PASS | 0 | 0 |
 | INTENT-04 | `src/tests/api/test_search.py` + `src/tests/services/test_clarification_loop.py` + `web/src/__tests__/Home.test.tsx` (`test_search_handles_follow_up_clarification_turn`, `test_continue_turn_with_preserved_resolved_fields...`, `preserves resolved clarification fields on Continue`) | PASS | 0 | 0 |
 
+### Final INTENT Dual-Evidence Closure Sync (Phase 08 Plan 03)
+
+| Requirement | Automated Evidence | Human Evidence | Final |
+|---|---|---|---|
+| INTENT-01 | `web/src/__tests__/Home.test.tsx` prompt submit assertions | `01-HUMAN-UAT.md` test 1 (pass) | ✓ VERIFIED |
+| INTENT-02 | `src/tests/api/test_search.py` extraction stability test | `01-HUMAN-UAT.md` test 2 (pass) | ✓ VERIFIED |
+| INTENT-03 | `src/tests/services/test_clarification_loop.py` slot-priority follow-up test | `01-HUMAN-UAT.md` test 3 (pass) | ✓ VERIFIED |
+| INTENT-04 | API + service + UI continue-turn continuity tests | `01-HUMAN-UAT.md` test 4 (pass) | ✓ VERIFIED |
+
 ### Machine-Check Enforcement
 
 ```bash
@@ -103,11 +112,11 @@ Any non-zero `blocked` or `skipped` value fails this gate.
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 180s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 180s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved
