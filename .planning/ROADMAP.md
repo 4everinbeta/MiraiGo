@@ -90,7 +90,7 @@ Plans:
 | 5. Shortlist Save & Share | 0/TBD | Not started | - |
 | 6. Fix intent extraction for timeline and destination parsing | 1/1 | Complete | 06-01-PLAN.md |
 | 7. Enhanced NLP | 0/TBD | Not started | - |
-| 8. Intent Verification Closure | 1/3 | In progress | 08-01-PLAN.md |
+| 8. Intent Verification Closure | 2/3 | In progress | 08-01-PLAN.md, 08-02-PLAN.md |
 | 9. Milestone Integration & Validation Backfill | 0/TBD | Not started | - |
 
 ### Phase 6: Fix intent extraction for timeline and destination parsing
@@ -125,7 +125,7 @@ Plans:
 
 Plans:
 - [x] 08-01-PLAN.md — Enforce strict automated INTENT evidence gates and fix/retest any automated regressions
-- [ ] 08-02-PLAN.md — Run fresh human INTENT UAT with blocking checkpoint and in-phase remediation loop
+- [x] 08-02-PLAN.md — Run fresh human INTENT UAT with blocking checkpoint and in-phase remediation loop
 - [ ] 08-03-PLAN.md — Finalize verification/milestone traceability artifacts for INTENT closure
 
 ### Phase 9: Milestone Integration & Validation Backfill
