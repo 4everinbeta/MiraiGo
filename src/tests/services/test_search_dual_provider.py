@@ -1,0 +1,144 @@
+from __future__ import annotations
+
+import asyncio
+from datetime import date
+
+import pytest
+
+from src.app.providers.base import ProviderError, TravelProvider
+from src.app.schemas.search import (
+    ClarificationBudgetRange,
+    FlightSearchResult,
+    InventoryType,
+    SearchDateRange,
+    SearchRequest,
+)
+from src.app.services.search import SearchService
+
+
+def _flight_result(provider: str, label: str, score: float, price: float) -> FlightSearchResult:
+    return FlightSearchResult(
+        inventory_type=InventoryType.FLIGHT,
+        provider=provider,
+        provider_label=label,
+        title="DEN to LIS",
+        description=f"{label} sample offer",
+        total_price=price,
+        currency="USD",
+        score=score,
+        origin_code="DEN",
+        destination_code="LIS",
+        departure_at="2026-06-10T09:00:00",
+        arrival_at="2026-06-10T19:00:00",
+        carrier_codes=["XX"],
+        stops=0,
+        duration="PT10H",
+    )
+
+
+class FakeFlightProvider(TravelProvider):
+    provider_name = "fake"
+    display_name = "Fake"
+    inventory_types = (InventoryType.FLIGHT,)
+
+    def __init__(
+        self,
+        *,
+        provider_name: str,
+        display_name: str,
+        results: list[FlightSearchResult] | None = None,
+        configured: bool = True,
+        delay_seconds: float = 0.0,
+        error_message: str | None = None,
+    ) -> None:
+        super().__init__(timeout_seconds=0.05, max_retries=0)
+        self.provider_name = provider_name
+        self.display_name = display_name
+        self._configured = configured
+        self._results = results or []
+        self._delay_seconds = delay_seconds
+        self._error_message = error_message
+        self.search_calls = 0
+
+    @property
+    def is_configured(self) -> bool:
+        return self._configured
+
+    @property
+    def unconfigured_reason(self) -> str | None:
+        if self._configured:
+            return None
+        return f"{self.display_name} is not configured."
+
+    async def search(
+        self, request: SearchRequest, inventory_type: InventoryType
+    ) -> list[FlightSearchResult]:
+        self.search_calls += 1
+        if self._delay_seconds:
+            await asyncio.sleep(self._delay_seconds)
+        if self._error_message:
+            raise ProviderError(self._error_message)
+        return list(self._results)
+
+
+def _resolved_flight_request() -> SearchRequest:
+    return SearchRequest(
+        query="Flight options to Lisbon",
+        inventory=[InventoryType.FLIGHT],
+        destination="LIS",
+        date_range=SearchDateRange(start=date(2026, 6, 10), end=date(2026, 6, 17)),
+        trip_length_days=7,
+        budget_range=ClarificationBudgetRange(
+            minimum=1000, maximum=2500, currency_code="USD"
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_visible_flight_gate_requires_origin_destination_and_dates():
+    service = SearchService()
+    service.providers = [
+        FakeFlightProvider(
+            provider_name="amadeus",
+            display_name="Amadeus",
+            results=[_flight_result("amadeus", "Amadeus", score=10.0, price=500.0)],
+        )
+    ]
+    request = _resolved_flight_request()
+
+    response = await service.search(request)
+
+    assert response.results == []
+    assert any("flight" in warning.lower() and "origin" in warning.lower() for warning in response.warnings)
+
+
+@pytest.mark.asyncio
+async def test_prefetch_requires_destination_and_timeline_without_bypassing_visible_gate():
+    service = SearchService()
+    provider = FakeFlightProvider(
+        provider_name="amadeus",
+        display_name="Amadeus",
+        results=[_flight_result("amadeus", "Amadeus", score=10.0, price=500.0)],
+    )
+    service.providers = [provider]
+
+    prefetch_eligible_request = SearchRequest(
+        query="Need flights to Lisbon in June",
+        inventory=[InventoryType.FLIGHT],
+        destination="LIS",
+        date_range=SearchDateRange(start=date(2026, 6, 10), end=date(2026, 6, 17)),
+    )
+    response = await service.search(prefetch_eligible_request)
+
+    assert response.results == []
+    assert provider.search_calls == 1
+
+    no_timeline_request = SearchRequest(
+        query="Need flights to Lisbon",
+        inventory=[InventoryType.FLIGHT],
+        destination="LIS",
+    )
+    response_without_timeline = await service.search(no_timeline_request)
+
+    assert response_without_timeline.results == []
+    assert provider.search_calls == 1
