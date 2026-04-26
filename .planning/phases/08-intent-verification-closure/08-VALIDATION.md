@@ -42,6 +42,7 @@ created: 2026-04-25
 | 08-01-02 | 01 | 1 | INTENT-02 | T-08-02 / — | Structured slot extraction remains stable | api/service | `PYTHONPATH=. ./venv/bin/pytest src/tests/api/test_search.py -q` | ✅ | ✅ green |
 | 08-01-03 | 01 | 1 | INTENT-03 | T-08-03 / — | Follow-ups remain focused and ordered | service | `PYTHONPATH=. ./venv/bin/pytest src/tests/services/test_clarification_loop.py -q` | ✅ | ✅ green |
 | 08-02-01 | 02 | 2 | INTENT-04 | T-08-04 / — | Continue flow keeps session continuity | ui+service | `PYTHONPATH=. ./venv/bin/pytest src/tests/services/test_clarification_loop.py -q && cd web && npm test -- --runInBand --testPathPatterns=Home.test.tsx --watch=false` | ✅ | ✅ green |
+| 08-02-02 | 02 | 2 | INTENT-01..04 | T-08-05 / T-08-06 | Human UAT closure + strict blocked/skipped gate evidence stays zero after rerun | docs+full suite | `PYTHONPATH=. ./venv/bin/pytest src/tests/services/test_clarification_loop.py src/tests/api/test_search.py -q && cd web && npm test -- --runInBand --testPathPatterns=Home.test.tsx --watch=false && cd .. && grep -Eq "blocked:\\s*0" .planning/phases/01-intent-capture-clarification/01-HUMAN-UAT.md && grep -Eq "skipped:\\s*0" .planning/phases/01-intent-capture-clarification/01-HUMAN-UAT.md && grep -Eq "blocked:\\s*0" .planning/phases/01-intent-capture-clarification/01-VERIFICATION.md && grep -Eq "skipped:\\s*0" .planning/phases/01-intent-capture-clarification/01-VERIFICATION.md && grep -Eq "blocked:\\s*0" .planning/phases/08-intent-verification-closure/08-VALIDATION.md && grep -Eq "skipped:\\s*0" .planning/phases/08-intent-verification-closure/08-VALIDATION.md` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -81,6 +82,13 @@ PYTHONPATH=. ./venv/bin/pytest src/tests/services/test_clarification_loop.py src
 ```
 
 Any non-zero `blocked` or `skipped` value fails this gate.
+
+### 08-02 Remediation Loop Outcome (D8-03)
+
+- result: no-fix-needed
+- basis: checkpoint approved for fresh browser UAT (INTENT-01..04 all pass)
+- blocked: 0
+- skipped: 0
 
 ---
 
