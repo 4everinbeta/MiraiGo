@@ -858,6 +858,9 @@ class SearchService:
         if len(results) <= 1:
             return results
 
+        provider_order = {
+            provider.provider_name: index for index, provider in enumerate(self.providers)
+        }
         provider_queues: dict[str, deque[FlightSearchResult]] = {}
         for result in results:
             provider_queues.setdefault(result.provider, deque()).append(result)
@@ -871,7 +874,10 @@ class SearchService:
             ]
             if not candidates:
                 break
-            _, winner = max(candidates, key=lambda item: (item[0], item[1]))
+            _, winner = max(
+                candidates,
+                key=lambda item: (item[0], -provider_order.get(item[1], 10_000)),
+            )
             merged.append(provider_queues[winner].popleft())
         return merged
 
