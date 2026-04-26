@@ -439,7 +439,7 @@ describe('Home Page Integration', () => {
     })
   })
 
-  it('preserves resolved trip length, budget, and weather fields on continue', async () => {
+  it('preserves resolved clarification fields on Continue', async () => {
     mockedSearchTrips
       .mockResolvedValueOnce({
         search_id: 'search-continue-1',
@@ -866,6 +866,292 @@ describe('Home Page Integration', () => {
           temperature: 'warm',
           precipitation: 'avoid_rain',
           source_text: 'warm',
+        },
+      })
+    )
+  })
+
+  it('preserves destination in turn session when applied_filters omits destination on a follow-up', async () => {
+    mockedSearchTrips
+      .mockResolvedValueOnce({
+        search_id: 'dest-1',
+        query: 'Lisbon trip',
+        requested_inventory: ['stay', 'flight'],
+        applied_filters: {
+          destination: 'Lisbon',
+          origin: null,
+          date_range: null,
+          travelers: { adults: 2, children: 0, infants: 0 },
+          stay_filters: { amenities: ['wifi'] },
+          flight_filters: { nonstop: false },
+        },
+        provider_status: [],
+        warnings: [],
+        results: [],
+        clarification_state: {
+          destination: {
+            slot: 'destination',
+            value_label: 'Lisbon',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          timeline: {
+            slot: 'timeline',
+            value_label: null,
+            confidence: 0.2,
+            ambiguous: true,
+            explicit_unknown: false,
+            source: 'extracted',
+          },
+          trip_length: {
+            slot: 'trip_length',
+            value_label: '7 days',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          budget: {
+            slot: 'budget',
+            value_label: null,
+            confidence: 0.2,
+            ambiguous: true,
+            explicit_unknown: false,
+            source: 'extracted',
+          },
+          next_question: {
+            slot: 'budget',
+            prompt: 'What budget should we target?',
+            helper_text: null,
+          },
+          recap: { chips: [], continue_label: 'Continue to Recommendations' },
+          all_critical_slots_resolved: false,
+        },
+      })
+      .mockResolvedValueOnce({
+        search_id: 'dest-2',
+        query: 'Lisbon trip',
+        requested_inventory: ['stay', 'flight'],
+        applied_filters: {
+          destination: null,
+          origin: null,
+          date_range: null,
+          travelers: { adults: 2, children: 0, infants: 0 },
+          stay_filters: { amenities: ['wifi'] },
+          flight_filters: { nonstop: false },
+        },
+        provider_status: [],
+        warnings: [],
+        results: [],
+        clarification_state: {
+          destination: {
+            slot: 'destination',
+            value_label: 'Lisbon',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          timeline: {
+            slot: 'timeline',
+            value_label: null,
+            confidence: 0.2,
+            ambiguous: true,
+            explicit_unknown: false,
+            source: 'extracted',
+          },
+          trip_length: {
+            slot: 'trip_length',
+            value_label: '7 days',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          budget: {
+            slot: 'budget',
+            value_label: '$1500-$2500',
+            confidence: 1,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'user',
+          },
+          next_question: {
+            slot: 'timeline',
+            prompt: 'When are you hoping to travel?',
+            helper_text: null,
+          },
+          recap: { chips: [], continue_label: 'Continue to Recommendations' },
+          all_critical_slots_resolved: false,
+        },
+      })
+      .mockResolvedValueOnce({
+        search_id: 'dest-3',
+        query: 'Lisbon trip',
+        requested_inventory: ['stay', 'flight'],
+        applied_filters: {
+          destination: 'Lisbon',
+          origin: null,
+          date_range: { start: '2026-09-01', end: null },
+          travelers: { adults: 2, children: 0, infants: 0 },
+          stay_filters: { amenities: ['wifi'] },
+          flight_filters: { nonstop: false },
+        },
+        provider_status: [],
+        warnings: [],
+        results: [],
+        clarification_state: null,
+      })
+
+    render(<Home />)
+
+    fireEvent.change(screen.getByLabelText(/travel prompt/i), {
+      target: { value: 'Lisbon trip' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit travel intent/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/what budget should we target\?/i)).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByLabelText(/your answer/i), {
+      target: { value: '$1500-$2500' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/when are you hoping to travel\?/i)).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByLabelText(/your answer/i), {
+      target: { value: 'September' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+
+    await waitFor(() => {
+      expect(mockedSearchTrips).toHaveBeenCalledTimes(3)
+    })
+
+    expect(mockedSearchTrips).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        destination: 'Lisbon',
+        clarification_answer: {
+          slot: 'timeline',
+          answer_text: 'September',
+          explicit_unknown: false,
+        },
+      })
+    )
+  })
+
+  it('hydrates turn-session destination from clarification state when applied filters omit it', async () => {
+    mockedSearchTrips
+      .mockResolvedValueOnce({
+        search_id: 'hydrate-1',
+        query: 'Need warm trip ideas',
+        requested_inventory: ['stay', 'flight'],
+        applied_filters: {
+          destination: null,
+          origin: null,
+          date_range: null,
+          travelers: { adults: 2, children: 0, infants: 0 },
+          stay_filters: { amenities: ['wifi'] },
+          flight_filters: { nonstop: false },
+        },
+        provider_status: [],
+        warnings: [],
+        results: [],
+        clarification_state: {
+          destination: {
+            slot: 'destination',
+            value_label: 'Lisbon',
+            confidence: 0.9,
+            ambiguous: false,
+            explicit_unknown: false,
+            source: 'extracted',
+          },
+          timeline: {
+            slot: 'timeline',
+            value_label: null,
+            confidence: 0.2,
+            ambiguous: true,
+            explicit_unknown: false,
+            source: 'extracted',
+          },
+          trip_length: {
+            slot: 'trip_length',
+            value_label: null,
+            confidence: 0.2,
+            ambiguous: true,
+            explicit_unknown: false,
+            source: 'extracted',
+          },
+          budget: {
+            slot: 'budget',
+            value_label: null,
+            confidence: 0.2,
+            ambiguous: true,
+            explicit_unknown: false,
+            source: 'extracted',
+          },
+          next_question: {
+            slot: 'budget',
+            prompt: 'What budget should we target?',
+            helper_text: null,
+          },
+          recap: { chips: [], continue_label: 'Continue to Recommendations' },
+          all_critical_slots_resolved: false,
+        },
+      })
+      .mockResolvedValueOnce({
+        search_id: 'hydrate-2',
+        query: 'Need warm trip ideas',
+        requested_inventory: ['stay', 'flight'],
+        applied_filters: {
+          destination: 'Lisbon',
+          origin: null,
+          date_range: null,
+          travelers: { adults: 2, children: 0, infants: 0 },
+          stay_filters: { amenities: ['wifi'] },
+          flight_filters: { nonstop: false },
+        },
+        provider_status: [],
+        warnings: [],
+        results: [],
+        clarification_state: null,
+      })
+
+    render(<Home />)
+
+    fireEvent.change(screen.getByLabelText(/travel prompt/i), {
+      target: { value: 'Need warm trip ideas' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit travel intent/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/what budget should we target\?/i)).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByLabelText(/your answer/i), {
+      target: { value: '$1800-$2400' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+
+    await waitFor(() => {
+      expect(mockedSearchTrips).toHaveBeenCalledTimes(2)
+    })
+
+    expect(mockedSearchTrips).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        destination: 'Lisbon',
+        clarification_answer: {
+          slot: 'budget',
+          answer_text: '$1800-$2400',
+          explicit_unknown: false,
         },
       })
     )

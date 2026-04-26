@@ -216,6 +216,7 @@ def test_post_search_multilingual_destination_and_synonym_keep_clarification_flo
     assert payload["clarification_state"]["destination"] is not None
     assert payload["clarification_state"]["destination"]["value_label"] == "Lisboa"
     assert payload["clarification_state"]["next_question"] is not None
+    # INTENT-02: extraction remains stable and moves clarification away from already-resolved slots.
     assert payload["clarification_state"]["next_question"]["slot"] != "destination"
 
 
@@ -269,4 +270,6 @@ def test_search_handles_follow_up_clarification_turn(fake_redis):
     assert follow_up_payload["clarification_state"] is not None
     assert follow_up_payload["clarification_state"]["trip_length"]["value_label"] is not None
     assert follow_up_payload["clarification_state"]["next_question"] is not None
-    assert follow_up_payload["clarification_state"]["next_question"]["slot"] == "timeline"
+    # INTENT-03 / INTENT-04: follow-up turn progression remains focused and deterministic.
+    assert follow_up_payload["clarification_state"]["next_question"]["slot"] == "budget"
+    assert follow_up_payload["clarification_state"]["next_question"]["slot"] != "destination"

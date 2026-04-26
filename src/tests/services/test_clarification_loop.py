@@ -51,6 +51,26 @@ def test_select_next_question_asks_first_missing_slot_only():
     assert next_question.slot == ClarificationSlot.DESTINATION
 
 
+def test_timeline_with_value_does_not_reask_only_for_low_confidence():
+    slot_states = {
+        ClarificationSlot.DESTINATION: _slot_state(ClarificationSlot.DESTINATION, "Lisbon"),
+        ClarificationSlot.TIMELINE: ClarificationSlotState(
+            slot=ClarificationSlot.TIMELINE,
+            value_label="June",
+            confidence=0.5,
+            ambiguous=False,
+            explicit_unknown=False,
+            source="extracted",
+        ),
+        ClarificationSlot.TRIP_LENGTH: _slot_state(ClarificationSlot.TRIP_LENGTH, None),
+        ClarificationSlot.BUDGET: _slot_state(ClarificationSlot.BUDGET, None),
+    }
+
+    next_question = select_next_question(slot_states)
+    assert next_question is not None
+    assert next_question.slot == ClarificationSlot.TRIP_LENGTH
+
+
 def test_build_clarification_state_has_no_next_question_when_resolved_or_unknown():
     slot_states = {
         ClarificationSlot.DESTINATION: _slot_state(ClarificationSlot.DESTINATION, "Lisbon"),
@@ -65,6 +85,7 @@ def test_build_clarification_state_has_no_next_question_when_resolved_or_unknown
 
 
 def test_missing_slots_are_asked_in_priority_order_one_by_one():
+    # INTENT-03: ask one focused clarification at a time in strict priority order.
     service = SearchService()
     req = SearchRequest(query="Need a trip")
 
@@ -141,6 +162,7 @@ def test_weather_state_is_carried_through_clarification():
 
 
 def test_continue_turn_with_preserved_resolved_fields_does_not_reopen_trip_length_or_budget():
+    # INTENT-04: continue path must preserve resolved critical slots.
     service = SearchService()
 
     first_turn = SearchRequest(
@@ -207,3 +229,74 @@ def test_continue_turn_with_preserved_resolved_fields_does_not_reopen_trip_lengt
     assert continue_state.trip_length.value_label is not None
     assert continue_state.budget.value_label is not None
     assert continue_state.all_critical_slots_resolved is True
+
+
+def test_extract_origin_hint_stops_before_trailing_context():
+    service = SearchService()
+    assert service._extract_origin_hint("Trip to Barcelona from Denver for two adults") == "Denver"
+    assert service._extract_origin_hint("From JFK to Lisbon in June") == "JFK"
+
+
+def test_uncertain_prompt_keeps_destination_as_first_clarification_slot():
+    service = SearchService()
+    request = SearchRequest(query="Maybe somewhere warm in early summer")
+
+    _, _, state = service._resolve_request(request)
+
+    assert state.next_question is not None
+    assert state.next_question.slot == ClarificationSlot.DESTINATION
+
+
+def test_timeline_recap_edit_keeps_trip_length_resolved():
+    service = SearchService()
+    request = SearchRequest(
+        query="Trip to Lisbon in early summer",
+        destination="Lisbon",
+        date_range={"start": "2026-06-01", "end": "2026-06-10"},
+        trip_length_days=7,
+        budget_range=ClarificationBudgetRange(minimum=1500, maximum=2500, currency_code="USD"),
+        recap_edit={
+            "slot": ClarificationSlot.TIMELINE,
+            "edited_value": "late June",
+            "explicit_unknown": False,
+        },
+    )
+
+    _, _, state = service._resolve_request(request)
+
+    assert state.trip_length.value_label is not None
+    assert state.trip_length.ambiguous is False
+    assert state.next_question is None or state.next_question.slot != ClarificationSlot.DESTINATION
+
+
+def test_budget_recap_edit_does_not_reopen_destination():
+    service = SearchService()
+    request = SearchRequest(
+        query="Trip to Lisbon in June",
+        destination="Lisbon",
+        date_range={"start": "2026-06-01", "end": "2026-06-10"},
+        trip_length_days=7,
+        budget_range=ClarificationBudgetRange(minimum=1500, maximum=2500, currency_code="USD"),
+        recap_edit={
+            "slot": ClarificationSlot.BUDGET,
+            "edited_value": "$1800-$2600",
+            "explicit_unknown": False,
+        },
+    )
+
+    _, _, state = service._resolve_request(request)
+
+    assert state.destination.value_label == "Lisbon"
+    assert state.next_question is None
+
+
+def test_early_summer_timeline_does_not_reask_timeline_when_destination_present():
+    service = SearchService()
+    request = SearchRequest(query="Trip to Lisbon in early summer")
+
+    _, _, state = service._resolve_request(request)
+
+    assert state.destination.value_label == "Lisbon"
+    assert state.timeline.value_label is not None
+    assert state.next_question is not None
+    assert state.next_question.slot == ClarificationSlot.TRIP_LENGTH
