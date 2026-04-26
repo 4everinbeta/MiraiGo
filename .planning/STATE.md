@@ -1,36 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: verifying
-stopped_at: Completed 09-03-PLAN.md
-last_updated: "2026-04-26T14:38:35.788Z"
+milestone: v1.1
+milestone_name: recommendation-and-pricing-expansion
+status: v1.0 milestone complete
+stopped_at: Milestone archived
+last_updated: "2026-04-26T16:35:00.000Z"
 last_activity: 2026-04-26
 progress:
-  total_phases: 9
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 15
-  percent: 88
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-24)
+See: .planning/PROJECT.md (updated 2026-04-26)
 
 **Core value:** Given vague travel intent, MiraiGo reliably converts it into personalized, ranked destination suggestions with clear rationale.
-**Current focus:** Phase 9 — Milestone Integration & Validation Backfill
+**Current focus:** Plan v1.1 milestone scope and requirements.
 
 ## Current Position
 
-Phase: 9 (Milestone Integration & Validation Backfill) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
+Phase: N/A (between milestones)
+Plan: N/A
+Status: v1.0 archived; waiting for `/gsd-new-milestone`
 Last activity: 2026-04-26
 
-Progress: [█████████░] 88%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -104,8 +104,8 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Execute Phase 7 plans (`07-01` to `07-03`)
-- Verify timeline/destination parsing behavior in human/UAT flow
+- Run `/gsd-new-milestone` to generate fresh REQUIREMENTS.md and roadmap expansion for v1.1.
+- Triage carried tech debt from v1.0 audit (compatibility route usage, optional frontend `clarification_state.history` typing).
 
 ### Blockers/Concerns
 
