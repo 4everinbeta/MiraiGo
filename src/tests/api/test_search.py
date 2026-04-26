@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from src.app.main import app
-from src.app.providers.base import TravelProvider
+from src.app.providers.base import ProviderError, TravelProvider
 from src.app.schemas.search import FlightSearchResult, InventoryType, SearchRequest, StaySearchResult
 from src.app.services.search import search_service
 
@@ -85,6 +85,19 @@ class EmptyFlightProvider(TravelProvider):
 
     async def search(self, request: SearchRequest, inventory_type: InventoryType):
         return []
+
+
+class PartialFailureFlightProvider(TravelProvider):
+    provider_name = "partialfail"
+    display_name = "Partial Failure"
+    inventory_types = (InventoryType.FLIGHT,)
+
+    @property
+    def is_configured(self) -> bool:
+        return True
+
+    async def search(self, request: SearchRequest, inventory_type: InventoryType):
+        raise ProviderError("upstream timeout")
 
 
 def test_post_search_returns_canonical_results(fake_redis, db_session):
@@ -194,6 +207,45 @@ def test_post_search_warns_when_flight_provider_returns_no_offers(fake_redis):
     payload = response.json()
     assert payload["results"] == []
     assert any("returned no flight offers" in warning for warning in payload["warnings"])
+
+
+def test_post_search_partial_dual_provider_failure_keeps_available_results(fake_redis):
+    search_service.providers = [ConfiguredProvider(), PartialFailureFlightProvider()]
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Barcelona trip from Denver",
+            "destination": "Barcelona",
+            "origin": "Denver",
+            "inventory": ["flight"],
+            "date_range": {"start": "2026-05-03", "end": "2026-05-08"},
+            "trip_length_days": 5,
+            "budget_range": {"minimum": 800, "maximum": 2000, "currency_code": "USD"},
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [item["provider"] for item in payload["results"]] == ["testlive"]
+    assert any("Partial Failure flight search unavailable: upstream timeout" == warning for warning in payload["warnings"])
+    assert any(
+        status["provider"] == "partialfail"
+        and status["healthy"] is False
+        and status["reason"] == "upstream timeout"
+        for status in payload["provider_status"]
+    )
+    assert any(
+        status["provider"] == "testlive"
+        and status["configured"] is True
+        and status["healthy"] is True
+        for status in payload["provider_status"]
+    )
 
 
 def test_post_search_multilingual_destination_and_synonym_keep_clarification_flow(fake_redis):
