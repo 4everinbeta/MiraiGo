@@ -28,6 +28,15 @@ interface TurnSessionState {
   limit_per_provider: number
 }
 
+function slotValueOrUndefined(value: string | null | undefined): string | undefined {
+  if (!value) return undefined
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'missing' || normalized === "i don't know") {
+    return undefined
+  }
+  return value
+}
+
 const DEFAULT_TURN_BASE: Omit<TurnSessionState, 'query' | 'destination' | 'origin' | 'date_range'> = {
   inventory: ['stay', 'flight'],
   travelers: { adults: 2, children: 0, infants: 0 },
@@ -109,17 +118,39 @@ export default function Home() {
       setResponse(nextResponse)
       setProviderStatuses(nextResponse.provider_status)
       setClarificationState(nextResponse.clarification_state ?? null)
+      const clarificationDestination = slotValueOrUndefined(
+        nextResponse.clarification_state?.destination?.value_label
+      )
       setTurnSession({
         query: turnRequest.query,
         inventory: turnRequest.inventory,
-        destination: nextResponse.applied_filters.destination ?? undefined,
-        origin: nextResponse.applied_filters.origin ?? undefined,
-        date_range: nextResponse.applied_filters.date_range ?? undefined,
+        destination:
+          nextResponse.applied_filters.destination ??
+          turnRequest.destination ??
+          clarificationDestination ??
+          turnSession?.destination ??
+          undefined,
+        origin: nextResponse.applied_filters.origin ?? turnRequest.origin ?? turnSession?.origin ?? undefined,
+        date_range:
+          nextResponse.applied_filters.date_range ??
+          turnRequest.date_range ??
+          turnSession?.date_range ??
+          undefined,
         trip_length_days:
-          nextResponse.applied_filters.trip_length_days ?? turnRequest.trip_length_days ?? undefined,
-        budget_range: nextResponse.applied_filters.budget_range ?? turnRequest.budget_range ?? undefined,
+          nextResponse.applied_filters.trip_length_days ??
+          turnRequest.trip_length_days ??
+          turnSession?.trip_length_days ??
+          undefined,
+        budget_range:
+          nextResponse.applied_filters.budget_range ??
+          turnRequest.budget_range ??
+          turnSession?.budget_range ??
+          undefined,
         weather_preference:
-          nextResponse.applied_filters.weather_preference ?? turnRequest.weather_preference ?? undefined,
+          nextResponse.applied_filters.weather_preference ??
+          turnRequest.weather_preference ??
+          turnSession?.weather_preference ??
+          undefined,
         travelers: turnRequest.travelers,
         stay_filters: turnRequest.stay_filters,
         flight_filters: turnRequest.flight_filters,

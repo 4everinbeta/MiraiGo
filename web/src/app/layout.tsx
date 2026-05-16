@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MiraiGo - The Future of Travel Discovery",
-  description: "Discover your next journey with natural language search and intelligent ranking.",
+  title: "MiraiGo | Local-First Travel Search MVP",
+  description: "Search live Duffel flights and hand hotel discovery off through provider-aware redirects.",
 };
 
 export default function RootLayout({

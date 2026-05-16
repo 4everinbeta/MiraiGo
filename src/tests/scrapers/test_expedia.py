@@ -1,15 +1,25 @@
 import pytest
-from unittest.mock import patch, MagicMock
-from src.app.scrapers.expedia import ExpediaScraper
+
+from src.app.providers.expedia import ExpediaRedirectProvider
+from src.app.schemas.search import InventoryType, SearchRequest, TravelerCounts
+
 
 @pytest.mark.asyncio
-async def test_expedia_scrape_success():
-    scraper = ExpediaScraper()
-    mock_response = MagicMock()
-    mock_response.text = "<html><body><div class='results'>Flight from NYC to LON for $500</div></body></html>"
-    
-    with patch.object(ExpediaScraper, 'fetch', return_value=mock_response):
-        result = await scraper.scrape("NYC to LON")
-        assert "NYC to LON" in result["results"][0]["text"]
-        assert result["provider"] == "Expedia"
+async def test_expedia_provider_returns_redirect_result():
+    provider = ExpediaRedirectProvider()
+    status = await provider.healthcheck()
+    assert status.configured is True
+    assert status.healthy is True
+    assert "Redirect-only hotel handoff" in (status.reason or "")
 
+    results = await provider.search(
+        SearchRequest(
+            destination="Barcelona",
+            inventory=[InventoryType.STAY],
+            travelers=TravelerCounts(adults=2),
+        ),
+        InventoryType.STAY,
+    )
+    assert len(results) == 1
+    assert results[0].redirect_url
+    assert results[0].price_known is False

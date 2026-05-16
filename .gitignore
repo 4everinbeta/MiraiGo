@@ -6,3 +6,8 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+.planning/
+miraigo-test.db
+web/.next/
+web/playwright-report/
+web/test-results/

@@ -30,3 +30,31 @@ def test_extract_intent_implicit_location():
     intent = extract_intent(query)
     assert intent["location"] == "Paris"
     assert "mountain" in intent["qualities"]
+
+
+def test_extract_intent_ignores_timeline_token_as_destination():
+    query = "Need warm weather in June"
+    intent = extract_intent(query)
+    assert intent["location"] is None
+    assert "June" in intent["dates"]
+
+
+def test_extract_intent_accepts_lowercase_destination_after_preposition():
+    query = "trip to lisbon in july"
+    intent = extract_intent(query)
+    assert intent["location"] == "Lisbon"
+
+
+def test_extract_intent_supports_common_spanish_tokens():
+    query = "Quiero un viaje economico para lisboa en julio"
+    intent = extract_intent(query)
+    assert intent["location"] == "Lisboa"
+    assert intent["normalized_budget"]["category"] == "budget"
+    assert "July" in intent["dates"]
+
+
+def test_extract_intent_maps_synonyms_to_canonical_quality():
+    query = "Need an affordable seaside getaway to porto"
+    intent = extract_intent(query)
+    assert "budget" in intent["qualities"]
+    assert "beach" in intent["qualities"]

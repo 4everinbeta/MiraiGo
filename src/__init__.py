@@ -1,0 +1,1 @@
+"""MiraiGo source package."""

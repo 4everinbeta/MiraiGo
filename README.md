@@ -1,92 +1,89 @@
 # MiraiGo
 
-Discover your next journey with the clarity of the future. MiraiGo is a travel search platform that uses natural language processing and parallel scraping to find the best travel options.
+MiraiGo is a local-first travel search MVP built with FastAPI and Next.js. It focuses on a clean search-and-redirect workflow for stays and flights, runs end-to-end with `docker compose`, and stays portable for split-service deployments on Railway or Azure.
 
-## Features
+## What This Version Does
 
-- **Natural Language Search:** Describe your dream trip in plain English.
-- **Parallel Scraping:** Aggregates results from Expedia, Booking.com, and Airbnb simultaneously.
-- **Intelligent Ranking:** Results are ranked based on how well they match your desired qualities.
-- **Modern UI:** A clean, responsive frontend built with Next.js and shadcn/ui, featuring subtle Japanese-inspired design.
+- Runs locally with `web`, `api`, `postgres`, and `redis` in Docker Compose.
+- Uses a provider adapter architecture with canonical stay and flight result types.
+- Supports a real live-flight path through **Duffel** when a token is configured.
+- Includes an **Expedia** hotel redirect provider for partner-handoff stay search.
+- Surfaces provider availability clearly when flight credentials are missing.
 
-## Getting Started
+## Architecture
 
-### Using Docker (Recommended)
+- Backend: FastAPI, SQLAlchemy, Alembic, Redis caching, provider adapters
+- Frontend: Next.js App Router, TypeScript, Tailwind CSS
+- Data stores: PostgreSQL for search run telemetry, Redis for cache
+- Deployment shape: split services for `api` and `web`, with managed Postgres/Redis in the cloud
 
-The easiest way to run the full stack (Frontend, Backend, Database, and Redis) is using Docker Compose.
+## Quick Start
 
-1. **Ensure you have Docker and Docker Compose installed.**
-2. **Start the stack:**
-   ```bash
-   docker compose up --build
-   ```
-3. **Access the application:**
-   - Frontend: [http://localhost:3000](http://localhost:3000)
-   - Backend API: [http://localhost:8000](http://localhost:8000)
-   - API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+1. Copy `.env.example` to `.env`.
+2. Optionally set `DUFFEL_ACCESS_TOKEN` for live Duffel flight search.
+3. Start the full stack:
 
-### Manual Setup (Development)
+```bash
+docker compose up --build
+```
 
-#### Backend (FastAPI)
+4. Open:
+   - Frontend: `http://localhost:3000`
+   - API docs: `http://localhost:8000/docs`
+   - API readiness: `http://localhost:8000/health/ready`
 
-1. Navigate to the root directory.
-2. Create and activate a virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Run the development server:
-   ```bash
-   uvicorn src.app.main:app --reload
-   ```
+If the Duffel token is absent, the app still starts cleanly. Flight search stays unavailable, while hotel redirects remain available.
 
-#### Frontend (Next.js)
+For the full local live-provider walkthrough, see [docs/duffel-local-setup.md](/home/rbrown/workspace/MiraiGo/docs/duffel-local-setup.md).
 
-1. Navigate to the `web/` directory:
-   ```bash
-   cd web
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+## Local Development
 
-### UI Testing
+### Backend
 
-MiraiGo includes a comprehensive UI testing suite using **Playwright**, covering functional regression, accessibility, and visual regression.
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn src.app.main:app --reload
+```
 
-1. Navigate to the `web/` directory.
-2. Run all E2E tests:
-   ```bash
-   npm run test:e2e
-   ```
-3. Run tests in UI mode (interactive):
-   ```bash
-   npm run test:e2e:ui
-   ```
-4. Update visual snapshots:
-   ```bash
-   npm run test:e2e:update
-   ```
+### Frontend
 
-**Accessibility Audits:** Every functional test includes an automated accessibility audit powered by `axe-core`. Tests will fail if WCAG AA violations are detected.
+```bash
+cd web
+npm ci
+npm run dev
+```
 
-## Tech Stack
+## Test Commands
 
-- **Frontend:** Next.js (TypeScript), Tailwind CSS v4, shadcn/ui, SWR.
-- **Backend:** FastAPI (Python), SQLAlchemy, PostgreSQL, Redis.
-- **Infrastructure:** Docker, Docker Compose.
+```bash
+pytest
+cd web && npm test -- --runInBand
+cd web && npm run lint
+cd web && npm run build
+```
 
-## License
+## Environment
 
-MIT
-# MiraiGo
+### Required for local Compose
+
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_DB`
+
+### Optional live-provider credentials
+
+- `DUFFEL_ACCESS_TOKEN`
+
+Duffel is the live self-service flight provider in the current MVP. Hotels use an Expedia redirect workflow rather than a live hotel API integration.
+
+## Cloud Deployment Notes
+
+- Railway and Azure should deploy the `api` and `web` as separate services.
+- Keep Docker Compose for local development only.
+- Use managed Postgres and Redis in cloud environments.
+- Deployment guides and workflow assumptions live in:
+  - [deploy/railway/README.md](/home/rbrown/workspace/MiraiGo/deploy/railway/README.md)
+  - [deploy/azure/README.md](/home/rbrown/workspace/MiraiGo/deploy/azure/README.md)
