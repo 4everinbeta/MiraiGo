@@ -1,15 +1,26 @@
 <!--
   Sync Impact Report
   ==================
-  Version change: N/A → 1.0.0 (initial baseline — no prior version)
-  Modified principles: N/A (new document)
-  Added sections: Core Principles (I–V), Tech Stack Constraints, Development Workflow, Governance
+  Version change: 1.0.0 → 1.1.0 (MINOR: provider architecture additions, services layer
+  acknowledgement, Duffel/Amadeus integration, graceful degradation, deployment target)
+
+  Modified principles:
+    II. Full-Stack Separation with API Contract — added provider adapter + services layer detail
+    IV. Security & Configuration Hygiene — expanded to cover Duffel/Amadeus token handling
+    V. Simplicity & Focused Modules — corrected: services layer is intentional, not prohibited
+
+  Added sections:
+    VI. Resilience & Graceful Degradation (new principle)
+    Tech Stack Constraints table — added Duffel, Amadeus, provider registry, deployment targets
+
   Removed sections: N/A
+
   Templates requiring updates:
-    ✅ .specify/templates/plan-template.md — Constitution Check section references updated principles
-    ✅ .specify/templates/spec-template.md — no structural change required; aligned with FR/SC model
-    ✅ .specify/templates/tasks-template.md — task phases align with full-stack (backend/frontend) layout
-  Follow-up TODOs: None — all fields resolved from codebase context.
+    ✅ .specify/templates/plan-template.md — Constitution Check gates reflect 6 principles
+    ✅ .specify/templates/spec-template.md — no structural change required
+    ✅ .specify/templates/tasks-template.md — task phases reflect services + providers layers
+
+  Follow-up TODOs: None — all fields resolved from README, config.py, and directory inspection.
 -->
 
 # MiraiGo Travel Discovery Constitution
@@ -33,8 +44,14 @@ MUST remain independently buildable and testable. All cross-stack communication 
 versioned REST API (`/api/v1/`). Frontend code MUST NOT import or embed backend logic, and backend
 code MUST NOT reference frontend assets.
 
+The backend is structured in deliberate layers: route handlers (`src/app/api/v1/`) call services
+(`src/app/services/`), which orchestrate provider adapters (`src/app/providers/`). The provider
+registry (`src/app/providers/registry.py`) is the single point for registering live and fallback
+providers. New travel data sources MUST be implemented as provider adapters, not inlined into routes.
+
 **Rationale**: Clean separation enables independent deployment, testing, and iteration of each tier.
-The API contract is the integration surface — keeping it explicit prevents hidden coupling.
+The provider adapter layer decouples the search pipeline from individual third-party API details,
+making it safe to add, remove, or swap providers without touching route logic.
 
 ### III. Test Coverage is Non-Negotiable
 
@@ -51,29 +68,55 @@ result quality. E2E tests protect the conversational search UX that defines the 
 
 ### IV. Security & Configuration Hygiene
 
-- Secrets (database credentials, API keys) MUST be loaded exclusively from `.env` via
+- Secrets (database credentials, provider API keys) MUST be loaded exclusively from `.env` via
   `src/app/core/config.py` (`pydantic-settings`). Secrets MUST NOT be committed to source control.
+  A checked-in `.env.example` MUST document every required and optional variable.
 - Sensitive model fields (e.g., search history) MUST use Fernet encryption via
   `src/app/core/security.py` (`encrypt_data` / `decrypt_data`).
+- Live provider credentials (`DUFFEL_ACCESS_TOKEN`, `AMADEUS_CLIENT_ID`, `AMADEUS_CLIENT_SECRET`)
+  are OPTIONAL at startup — their absence MUST make the relevant provider unavailable, not crash the
+  app. Required variables are `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`.
+- Amadeus OAuth tokens MUST be cached in Redis under `providers:amadeus:oauth-token` and MUST NOT
+  be fetched on every request.
 - Frontend runtime configuration MUST use `NEXT_PUBLIC_*` env vars read in `web/src/lib/api.ts`.
 - Generated artifacts (`web/.next/`, `web/playwright-report/`, `web/test-results/`, `venv/`) MUST
   remain out of version control.
 
-**Rationale**: Travel query data is sensitive user intent. Encryption at rest and environment-driven
-secrets prevent credential leaks and data exposure.
+**Rationale**: Travel query data is sensitive user intent. Encryption at rest, environment-driven
+secrets, and graceful token absence prevent both data exposure and hard startup failures in
+environments where not all provider credentials are available.
 
 ### V. Simplicity & Focused Modules
 
 - Every Python module MUST have a single, clear responsibility. Functions MUST be small and
   preferably stateless (see `extract_intent`, `rank_results`).
+- The services layer (`src/app/services/`) is intentional and MUST be used for orchestration logic
+  that crosses provider or NLP boundaries. Route handlers MUST delegate to services; business logic
+  MUST NOT be inlined into route functions.
 - React components MUST own only the state they render; shared state belongs in the nearest common
   ancestor (`web/src/app/page.tsx`).
-- No additional layers (repositories, service buses, state managers) MUST be introduced unless
-  directly required by a concrete, documented problem. YAGNI applies.
+- No additional architectural layers beyond routes → services → providers/NLP MUST be introduced
+  unless directly required by a concrete, documented problem. YAGNI applies.
 - New dependencies MUST be justified in the PR description against existing alternatives.
 
-**Rationale**: The current architecture is deliberately lean. Premature abstraction has a high cost
-in a small team shipping at speed; complexity must earn its place.
+**Rationale**: The layered architecture (routes → services → providers) is the deliberate ceiling.
+Premature abstraction beyond this has a high cost in a small team; each new layer must solve a
+concrete problem that the existing layer cannot.
+
+### VI. Resilience & Graceful Degradation
+
+- Provider failures MUST NOT crash the search endpoint. Each provider adapter MUST handle its own
+  errors and return an empty result set rather than propagating exceptions to the route.
+- Missing optional credentials (e.g., `DUFFEL_ACCESS_TOKEN`) MUST result in the provider reporting
+  itself as unavailable — the API response MUST surface provider availability clearly to the frontend.
+- Redis cache failures MUST be swallowed silently; the search pipeline MUST complete without cache.
+- Scraper-based providers (`src/app/scrapers/`) MUST fall back to mock result sets when live
+  fetching fails, so the frontend always receives a well-formed response.
+- Timeouts MUST be enforced per provider (`PROVIDER_TIMEOUT_SECONDS`, `DUFFEL_SUPPLIER_TIMEOUT_MS`)
+  to prevent a slow provider from blocking the entire request.
+
+**Rationale**: MiraiGo is a discovery product — a partial result set is far better than a 500
+error. Users should always see something, even when some providers are unavailable.
 
 ## Tech Stack Constraints
 
@@ -85,9 +128,12 @@ These versions and tools are locked for the current milestone. Changes require a
 | Backend framework | FastAPI + Uvicorn | latest stable |
 | ORM | SQLAlchemy | latest stable |
 | DB driver | psycopg2-binary (PostgreSQL 16) | latest stable |
+| Migrations | Alembic | latest stable |
 | Cache | Redis 7 (via `redis` client) | latest stable |
 | HTTP client | httpx (async) | latest stable |
-| Migrations | Alembic | latest stable |
+| Flight provider | Duffel API v2 | latest stable |
+| Flight provider (alt) | Amadeus (test env) | latest stable |
+| Hotel provider | Expedia redirect workflow | N/A |
 | Backend testing | pytest + pytest-cov | latest stable |
 | Frontend language | TypeScript | 5 (strict mode) |
 | Frontend framework | Next.js (App Router) | 16.1.6 |
@@ -98,17 +144,22 @@ These versions and tools are locked for the current milestone. Changes require a
 | Frontend E2E/a11y | Playwright + @axe-core/playwright | 1.58.x |
 | Linting | ESLint 9 (eslint-config-next) | 9.x |
 | Containerisation | Docker + Docker Compose | latest stable |
+| Cloud deployment | Railway or Azure (split api + web services) | N/A |
 
 ## Development Workflow
 
 - **Full-stack local run**: `docker compose up --build` (PostgreSQL 16 + Redis 7 + API + Web).
-- **Backend only**: activate `venv`, `pip install -r requirements.txt`,
+- **Backend only**: activate `venv`, `pip install -r requirements.txt`, `alembic upgrade head`,
   `uvicorn src.app.main:app --reload`.
-- **Frontend only**: `cd web && npm install && npm run dev`.
+- **Frontend only**: `cd web && npm ci && npm run dev`.
+- **Environment setup**: copy `.env.example` to `.env`; set `DUFFEL_ACCESS_TOKEN` for live flight
+  search (optional — app starts cleanly without it).
 - **Backend tests**: `pytest --cov=src --cov-report=term-missing` — MUST pass before PR merge.
-- **Frontend unit tests**: `cd web && npm test` — MUST pass before PR merge.
+- **Frontend unit tests**: `cd web && npm test -- --runInBand` — MUST pass before PR merge.
 - **Frontend lint**: `cd web && npm run lint` — MUST be clean before PR merge.
+- **Frontend build check**: `cd web && npm run build` — MUST succeed before PR merge.
 - **E2E tests**: `cd web && npm run test:e2e` — run against a running full stack.
+- **API docs**: available at `http://localhost:8000/docs` during local development.
 - **Commit format**: scoped imperative subjects — `feat(api): ...`, `feat(web): ...`,
   `fix(nlp): ...`, `chore(core): ...`. Scope MUST match the changed area.
 - PRs MUST include: summary, test evidence, screenshots for visible UI changes.
@@ -127,4 +178,4 @@ source of non-negotiable rules for MiraiGo development.
 - Review `.specify/memory/constitution.md` at the start of each milestone to confirm it still
   reflects current reality.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-16 | **Last Amended**: 2026-05-16
+**Version**: 1.1.0 | **Ratified**: 2026-05-16 | **Last Amended**: 2026-05-16
