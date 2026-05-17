@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.app.api.v1 import search
+from src.app.api.v1 import itinerary, search
 from src.app.core.config import settings
 from src.app.core.logging import configure_logging
 from src.app.db.redis import check_redis_connection
@@ -22,6 +22,7 @@ app.add_middleware(
 )
 
 app.include_router(search.router, prefix=settings.API_V1_STR)
+app.include_router(itinerary.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health")

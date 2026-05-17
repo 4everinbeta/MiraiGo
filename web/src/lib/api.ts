@@ -182,6 +182,68 @@ export interface SearchResponse {
   clarification_state?: ClarificationState | null
 }
 
+export type ItineraryEstimateConfidence = 'low' | 'medium' | 'high'
+
+export interface ItineraryCostEstimate {
+  total_estimated: number
+  flight_estimated: number
+  stay_estimated: number
+  car_estimated: number
+  currency_code: string
+  confidence: ItineraryEstimateConfidence
+}
+
+export interface ItineraryProposal {
+  proposal_id: string
+  destination: string
+  destination_region_key: string
+  travel_window: SearchDateRange
+  duration_nights: number
+  travelers: TravelerCounts
+  needs_car: boolean
+  cost_estimate: ItineraryCostEstimate
+  rationale: string
+  within_budget: boolean
+  over_budget_note?: string | null
+}
+
+export interface ItineraryProposeRequest {
+  query: string
+  travelers?: TravelerCounts
+  budget_range?: ClarificationBudgetRange
+  candidate_destinations?: string[]
+  travel_window?: SearchDateRange
+  include_car?: boolean
+  clarification_answer?: Record<string, unknown>
+  currency_code?: string
+}
+
+export interface ItineraryProposeResponse {
+  session_id: string
+  proposals: ItineraryProposal[]
+  clarification_state?: ClarificationState | null
+  applied_inputs: Record<string, unknown>
+  warnings: string[]
+}
+
+export interface ItineraryPriceRequest {
+  proposal_id: string
+  proposal_snapshot: ItineraryProposal
+  travelers: TravelerCounts
+  currency_code?: string
+}
+
+export interface ItineraryPriceResponse {
+  search_id: string
+  proposal_id: string
+  flight_results: FlightSearchResult[]
+  stay_results: StaySearchResult[]
+  car_redirect_url?: string | null
+  car_redirect_label?: string | null
+  provider_status: ProviderStatus[]
+  warnings: string[]
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -209,6 +271,22 @@ export async function fetchProviderStatuses(): Promise<ProviderStatus[]> {
 
 export async function searchTrips(payload: SearchRequest): Promise<SearchResponse> {
   return request<SearchResponse>('/search', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function proposeItinerary(
+  payload: ItineraryProposeRequest
+): Promise<ItineraryProposeResponse> {
+  return request<ItineraryProposeResponse>('/itinerary/propose', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function priceItinerary(payload: ItineraryPriceRequest): Promise<ItineraryPriceResponse> {
+  return request<ItineraryPriceResponse>('/itinerary/price', {
     method: 'POST',
     body: JSON.stringify(payload),
   })

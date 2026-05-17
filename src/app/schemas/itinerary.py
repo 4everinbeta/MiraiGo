@@ -6,10 +6,13 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from src.app.schemas.search import (
+    ClarificationAnswer,
     ClarificationBudgetRange,
-    ClarificationQuestion,
-    ClarificationSlotState,
+    ClarificationState,
+    FlightSearchResult,
+    ProviderStatus,
     SearchDateRange,
+    StaySearchResult,
     TravelerCounts,
 )
 
@@ -44,15 +47,14 @@ class ItineraryProposeRequest(BaseModel):
     candidate_destinations: list[str] = Field(default_factory=list)
     travel_window: SearchDateRange | None = None
     include_car: bool | None = None
-    clarification_answer: dict | None = None
+    clarification_answer: ClarificationAnswer | None = None
     currency_code: str = Field(default="USD", min_length=3, max_length=3)
 
 
 class ItineraryProposeResponse(BaseModel):
     session_id: str = Field(default_factory=lambda: str(uuid4()))
     proposals: list[ItineraryProposal] = Field(default_factory=list)
-    clarification_state: list[ClarificationSlotState] = Field(default_factory=list)
-    clarification_questions: list[ClarificationQuestion] = Field(default_factory=list)
+    clarification_state: ClarificationState | None = None
     applied_inputs: dict = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
 
@@ -67,9 +69,9 @@ class ItineraryPriceRequest(BaseModel):
 class ItineraryPriceResponse(BaseModel):
     search_id: str = Field(default_factory=lambda: str(uuid4()))
     proposal_id: str
-    flight_results: list[dict] = Field(default_factory=list)
-    stay_results: list[dict] = Field(default_factory=list)
+    flight_results: list[FlightSearchResult] = Field(default_factory=list)
+    stay_results: list[StaySearchResult] = Field(default_factory=list)
     car_redirect_url: str | None = None
     car_redirect_label: str | None = None
-    provider_status: list[dict] = Field(default_factory=list)
+    provider_status: list[ProviderStatus] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

@@ -1,12 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import ItineraryPricingResult from '@/components/itinerary/ItineraryPricingResult'
+import ItineraryProposalList from '@/components/itinerary/ItineraryProposalList'
 import SearchForm from '@/components/search/SearchForm'
 import ResultsDashboard from '@/components/search/ResultsDashboard'
 import {
   type ClarificationState,
   fetchProviderStatuses,
+  priceItinerary,
+  proposeItinerary,
   searchTrips,
+  type ItineraryPriceResponse,
+  type ItineraryProposal,
   type ProviderStatus,
   type SearchRequest,
   type SearchResponse,
@@ -78,11 +84,24 @@ function resolveTurnRequest(
   }
 }
 
+const ITINERARY_KEYWORDS = ['itinerary', 'trip options', 'best travel options', 'budget for']
+
+function isItineraryIntent(query?: string): boolean {
+  if (!query) return false
+  const normalized = query.toLowerCase()
+  return ITINERARY_KEYWORDS.some((keyword) => normalized.includes(keyword))
+}
+
 export default function Home() {
   const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([])
   const [response, setResponse] = useState<SearchResponse | null>(null)
+  const [proposals, setProposals] = useState<ItineraryProposal[]>([])
+  const [selectedProposal, setSelectedProposal] = useState<ItineraryProposal | null>(null)
+  const [pricingResult, setPricingResult] = useState<ItineraryPriceResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isProposalLoading, setIsProposalLoading] = useState(false)
+  const [isPricingLoading, setIsPricingLoading] = useState(false)
   const [clarificationState, setClarificationState] = useState<ClarificationState | null>(null)
   const [turnSession, setTurnSession] = useState<TurnSessionState | null>(null)
 
@@ -110,9 +129,30 @@ export default function Home() {
   }, [])
 
   const handleSearch = async (request: SearchRequest) => {
+    if (isItineraryIntent(request.query)) {
+      setErrorMessage(null)
+      setResponse(null)
+      setPricingResult(null)
+      setSelectedProposal(null)
+      setIsProposalLoading(true)
+      try {
+        const proposed = await proposeItinerary({ query: request.query ?? '' })
+        setProposals(proposed.proposals)
+      } catch {
+        setProposals([])
+        setErrorMessage('Unable to generate itinerary options right now.')
+      } finally {
+        setIsProposalLoading(false)
+      }
+      return
+    }
+
     const turnRequest = resolveTurnRequest(request, turnSession)
     setIsSubmitting(true)
     setErrorMessage(null)
+    setProposals([])
+    setSelectedProposal(null)
+    setPricingResult(null)
     try {
       const nextResponse = await searchTrips(turnRequest)
       setResponse(nextResponse)
@@ -165,6 +205,27 @@ export default function Home() {
     }
   }
 
+  const handleSelectProposal = async (proposal: ItineraryProposal) => {
+    setSelectedProposal(proposal)
+    setPricingResult(null)
+    setErrorMessage(null)
+    setIsPricingLoading(true)
+    try {
+      const result = await priceItinerary({
+        proposal_id: proposal.proposal_id,
+        proposal_snapshot: proposal,
+        travelers: turnSession?.travelers ?? { adults: 2, children: 1, infants: 0 },
+        currency_code: 'USD',
+      })
+      setPricingResult(result)
+      setProviderStatuses(result.provider_status)
+    } catch {
+      setErrorMessage('Live itinerary pricing failed. Please try selecting again.')
+    } finally {
+      setIsPricingLoading(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(43,58,103,0.08),_transparent_35%),linear-gradient(180deg,_#fff_0%,_#fff7f8_100%)] text-foreground">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-10 px-6 py-14">
@@ -196,17 +257,36 @@ export default function Home() {
 
         <SearchForm
           clarificationState={clarificationState}
-          isSubmitting={isSubmitting}
+          isSubmitting={isSubmitting || isProposalLoading || isPricingLoading}
           preservedRequest={turnSession}
           onSearch={handleSearch}
         />
 
-        <ResultsDashboard
-          errorMessage={errorMessage}
-          isLoading={isSubmitting}
-          providerStatuses={providerStatuses}
-          response={response}
-        />
+        {selectedProposal && pricingResult ? (
+          <ItineraryPricingResult
+            result={pricingResult}
+            proposal={selectedProposal}
+            onBack={() => {
+              setPricingResult(null)
+              setSelectedProposal(null)
+            }}
+          />
+        ) : proposals.length > 0 || isProposalLoading ? (
+          <ItineraryProposalList
+            proposals={proposals}
+            isLoading={isProposalLoading}
+            onSelect={(proposal) => {
+              void handleSelectProposal(proposal)
+            }}
+          />
+        ) : (
+          <ResultsDashboard
+            errorMessage={errorMessage}
+            isLoading={isSubmitting || isProposalLoading || isPricingLoading}
+            providerStatuses={providerStatuses}
+            response={response}
+          />
+        )}
       </div>
     </main>
   )

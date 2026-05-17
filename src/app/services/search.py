@@ -74,7 +74,11 @@ class SearchService:
         search_id = str(uuid.uuid4())
         prefetch_executions: list[ProviderExecution] = []
 
-        if clarification_state and not clarification_state.all_critical_slots_resolved:
+        if (
+            clarification_state
+            and not clarification_state.all_critical_slots_resolved
+            and self._should_block_for_clarification(clarification_state)
+        ):
             prefetch_executions = await self._prefetch_flights_if_eligible(
                 resolved_request,
                 allow_visible_flights=False,
@@ -183,6 +187,10 @@ class SearchService:
             weather_state=slot_states.get(ClarificationSlot.WEATHER),
         )
         return request.model_copy(update={"clarification_state": clarification_state}), warnings, clarification_state
+
+    def _should_block_for_clarification(self, clarification_state: ClarificationState) -> bool:
+        destination = clarification_state.destination
+        return destination.ambiguous or destination.confidence < GLOBAL_CONFIDENCE_THRESHOLD
 
     def _build_slot_states(
         self, request: SearchRequest, intent: dict
