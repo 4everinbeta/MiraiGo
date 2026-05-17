@@ -10,6 +10,10 @@ from src.app.schemas.search import (
     ClarificationSlot,
     ClarificationSlotState,
     ClarificationState,
+    DestinationSelectionMode,
+    DestinationSuggestion,
+    DestinationSuggestionKind,
+    DestinationSuggestionSource,
 )
 
 # Ordered list keeps one-question-at-a-time behavior deterministic (D-03/D-04).
@@ -66,6 +70,22 @@ SLOT_PROMPTS: dict[ClarificationSlot, ClarificationQuestion] = {
     ),
 }
 
+_REGION_SUGGESTIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("North America", ("family-friendly", "easy-access")),
+    ("Central America", ("warm", "beach")),
+    ("Europe", ("culture", "walkable")),
+    ("Caribbean", ("warm", "beach")),
+    ("Asia-Pacific", ("beach", "adventure")),
+)
+
+_CURATED_DESTINATIONS: tuple[tuple[str, str, tuple[str, ...], float], ...] = (
+    ("cancun-mx", "Cancun", ("warm", "beach", "family-friendly"), 0.92),
+    ("punta-cana-do", "Punta Cana", ("warm", "beach", "all-inclusive"), 0.9),
+    ("maui-us", "Maui", ("warm", "beach", "romantic"), 0.88),
+    ("mallorca-es", "Mallorca", ("warm", "beach", "culture"), 0.86),
+    ("algarve-pt", "Algarve", ("warm", "beach", "relaxed"), 0.84),
+)
+
 
 def slot_requires_follow_up(slot_state: ClarificationSlotState) -> bool:
     if slot_state.explicit_unknown:
@@ -108,6 +128,97 @@ def build_recap(slot_states: dict[ClarificationSlot, ClarificationSlotState]) ->
             )
         )
     return ClarificationRecap(chips=chips)
+
+
+def build_destination_suggestions(
+    *,
+    destination_state: ClarificationSlotState,
+    query_text: str | None,
+    selected_candidates: list[str] | None = None,
+) -> list[DestinationSuggestion]:
+    if not slot_requires_follow_up(destination_state):
+        return []
+
+    selected = {candidate.strip().lower() for candidate in selected_candidates or [] if candidate.strip()}
+    query_signals = _extract_query_signals(query_text)
+
+    suggestions: list[DestinationSuggestion] = [
+        DestinationSuggestion(
+            id=f"region:{label.lower().replace(' ', '-')}",
+            kind=DestinationSuggestionKind.REGION,
+            label=label,
+            signals=list(signals),
+            source=DestinationSuggestionSource.CURATED,
+            popularity_score=0.75,
+        )
+        for label, signals in _REGION_SUGGESTIONS
+    ]
+
+    for destination_id, label, signals, popularity_score in _CURATED_DESTINATIONS:
+        if label.lower() in selected:
+            continue
+        if query_signals and query_signals.isdisjoint(set(signals)):
+            continue
+        suggestions.append(
+            DestinationSuggestion(
+                id=f"destination:{destination_id}",
+                kind=DestinationSuggestionKind.DESTINATION,
+                label=label,
+                signals=list(signals),
+                source=DestinationSuggestionSource.TREND,
+                popularity_score=popularity_score,
+            )
+        )
+    return suggestions
+
+
+def resolve_destination_selection_mode(
+    explicit_mode: DestinationSelectionMode | None,
+    destination_candidates: list[str],
+    destination: str | None,
+) -> DestinationSelectionMode:
+    if explicit_mode is not None:
+        return explicit_mode
+    if len(destination_candidates) > 1:
+        return DestinationSelectionMode.COMPARE
+    return DestinationSelectionMode.SINGLE
+
+
+def normalize_destination_candidates(
+    *,
+    destination_candidates: list[str] | None,
+    destination: str | None,
+) -> list[str]:
+    seen: set[str] = set()
+    normalized: list[str] = []
+
+    for raw_value in [*(destination_candidates or []), destination]:
+        if not raw_value:
+            continue
+        value = raw_value.strip()
+        if not value:
+            continue
+        dedupe_key = value.lower()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        normalized.append(value)
+    return normalized
+
+
+def _extract_query_signals(query_text: str | None) -> set[str]:
+    if not query_text:
+        return set()
+    lowered = query_text.lower()
+    keywords = {
+        "warm": "warm",
+        "beach": "beach",
+        "family": "family-friendly",
+        "romantic": "romantic",
+        "adventure": "adventure",
+        "culture": "culture",
+    }
+    return {signal for token, signal in keywords.items() if token in lowered}
 
 
 def build_clarification_state(

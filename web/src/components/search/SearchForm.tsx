@@ -9,6 +9,7 @@ import type {
   ClarificationRecapChip,
   ClarificationSlot,
   ClarificationState,
+  DestinationSuggestion,
   InventoryType,
   SearchRequest,
 } from '@/lib/api'
@@ -71,17 +72,26 @@ export default function SearchForm({
   const [answerText, setAnswerText] = useState('')
   const [editingSlot, setEditingSlot] = useState<ClarificationSlot | null>(null)
   const [editedValue, setEditedValue] = useState('')
+  const [selectedSuggestionIds, setSelectedSuggestionIds] = useState<string[]>([])
 
   const activeQuestion = clarificationState?.next_question ?? null
+  const destinationSuggestions = clarificationState?.destination_suggestions ?? []
   const recapChips = clarificationState?.recap.chips ?? []
   const canBegin = Boolean(query.trim())
   const canSubmitAnswer = Boolean(answerText.trim() && activeQuestion)
   const complete = Boolean(clarificationState?.all_critical_slots_resolved)
+  const isDestinationQuestion = activeQuestion?.slot === 'destination'
 
   const activeChip = useMemo(
     () => recapChips.find((chip) => chip.slot === editingSlot) ?? null,
     [editingSlot, recapChips]
   )
+
+  const selectedSuggestions = useMemo(() => {
+    if (!destinationSuggestions.length || !selectedSuggestionIds.length) return []
+    const selected = new Set(selectedSuggestionIds)
+    return destinationSuggestions.filter((item) => selected.has(item.id))
+  }, [destinationSuggestions, selectedSuggestionIds])
 
   const handleBegin = (event: React.FormEvent) => {
     event.preventDefault()
@@ -114,6 +124,31 @@ export default function SearchForm({
         explicit_unknown: true,
       },
     })
+  }
+
+  const toggleSuggestion = (suggestion: DestinationSuggestion) => {
+    setSelectedSuggestionIds((prev) => {
+      if (prev.includes(suggestion.id)) {
+        return prev.filter((item) => item !== suggestion.id)
+      }
+      return [...prev, suggestion.id]
+    })
+  }
+
+  const submitSelectedSuggestions = () => {
+    if (!selectedSuggestions.length || isSubmitting) return
+    const destinationCandidates = selectedSuggestions.map((item) => item.label)
+    onSearch({
+      ...buildBaseRequest(query),
+      constraint_updates: {
+        destination: destinationCandidates.length === 1 ? destinationCandidates[0] : undefined,
+        destination_candidates: destinationCandidates,
+        destination_selection_mode:
+          destinationCandidates.length > 1 ? 'compare' : 'single',
+        explicit_unknown_slots: [],
+      },
+    })
+    setAnswerText('')
   }
 
   const startEditingChip = (chip: ClarificationRecapChip) => {
@@ -215,6 +250,61 @@ export default function SearchForm({
                 {activeQuestion.helper_text}
               </p>
             ) : null}
+            {isDestinationQuestion && destinationSuggestions.length > 0 && (
+              <div className="space-y-3 rounded-xl border border-primary/20 bg-white p-4">
+                <p className="text-sm font-medium text-sumi">
+                  Pick one or more options to narrow the location:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {destinationSuggestions.map((suggestion) => {
+                    const selected = selectedSuggestionIds.includes(suggestion.id)
+                    return (
+                      <button
+                        key={suggestion.id}
+                        className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                          selected
+                            ? 'border-primary bg-primary text-white'
+                            : 'border-primary/25 bg-white text-sumi hover:border-primary/60'
+                        }`}
+                        onClick={() => toggleSuggestion(suggestion)}
+                        type="button"
+                      >
+                        {suggestion.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {selectedSuggestions.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedSuggestions.map((suggestion) => (
+                      <span
+                        key={`selected-${suggestion.id}`}
+                        className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                      >
+                        {suggestion.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    disabled={!selectedSuggestions.length || isSubmitting}
+                    onClick={submitSelectedSuggestions}
+                    type="button"
+                  >
+                    Use selected destinations
+                  </Button>
+                  <Button
+                    disabled={isSubmitting}
+                    onClick={markAnswerUnknown}
+                    type="button"
+                    variant="outline"
+                  >
+                    Don&apos;t care — show popular beach picks
+                  </Button>
+                </div>
+              </div>
+            )}
             <form className="space-y-3" onSubmit={handleAnswerSubmit}>
               <label className="space-y-2 text-sm font-normal leading-[1.4] text-sumi">
                 Your answer

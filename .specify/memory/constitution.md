@@ -1,26 +1,26 @@
 <!--
   Sync Impact Report
   ==================
-  Version change: 1.0.0 → 1.1.0 (MINOR: provider architecture additions, services layer
-  acknowledgement, Duffel/Amadeus integration, graceful degradation, deployment target)
+  Version change: 1.1.0 → 1.2.0 (MINOR: mandatory phase-gated behavioral testing)
 
   Modified principles:
-    II. Full-Stack Separation with API Contract — added provider adapter + services layer detail
-    IV. Security & Configuration Hygiene — expanded to cover Duffel/Amadeus token handling
-    V. Simplicity & Focused Modules — corrected: services layer is intentional, not prohibited
+    III. Test Coverage is Non-Negotiable — added implementation phase gate requirement
+    Governance — added explicit compliance expectation for phase gate enforcement
 
   Added sections:
-    VI. Resilience & Graceful Degradation (new principle)
-    Tech Stack Constraints table — added Duffel, Amadeus, provider registry, deployment targets
+    N/A
 
-  Removed sections: N/A
+  Removed sections:
+    N/A
 
   Templates requiring updates:
-    ✅ .specify/templates/plan-template.md — Constitution Check gates reflect 6 principles
-    ✅ .specify/templates/spec-template.md — no structural change required
-    ✅ .specify/templates/tasks-template.md — task phases reflect services + providers layers
+    ✅ .specify/templates/tasks-template.md — phase tests no longer optional; gate wording added
+    ✅ .specify/templates/plan-template.md — added explicit phase test gate field
+    ✅ .specify/templates/spec-template.md — added note to keep acceptance criteria behavioral
+    ✅ .github/copilot-instructions.md — no conflicting guidance; plan pointer remains valid
+    ✅ README.md — no direct constitution text to update
 
-  Follow-up TODOs: None — all fields resolved from README, config.py, and directory inspection.
+  Follow-up TODOs: None.
 -->
 
 # MiraiGo Travel Discovery Constitution
@@ -62,9 +62,14 @@ making it safe to add, remove, or swap providers without touching route logic.
 - Frontend (E2E): user-facing flows MUST be covered by a Playwright test in `web/tests/e2e/`.
 - Accessibility: Playwright tests MUST include `@axe-core/playwright` checks for all primary pages.
 - Tests MUST be written before or alongside implementation — not as a post-merge afterthought.
+- Every implementation phase MUST begin with a defined set of behavioral tests that confirm the
+  phase acceptance criteria.
+- Behavioral test sets MUST include both unit tests and integration tests for that phase scope.
+- A phase MUST NOT advance to the next phase until its behavioral test set passes.
 
 **Rationale**: The scraper and NLP layers have complex branching; untested changes silently degrade
-result quality. E2E tests protect the conversational search UX that defines the product.
+result quality. Phase-gated behavioral testing prevents drift from acceptance criteria and ensures
+incremental quality before downstream work.
 
 ### IV. Security & Configuration Hygiene
 
@@ -177,5 +182,7 @@ source of non-negotiable rules for MiraiGo development.
   alternative that was considered and rejected.
 - Review `.specify/memory/constitution.md` at the start of each milestone to confirm it still
   reflects current reality.
+- PR review MUST verify that each implemented phase has explicit unit + integration behavioral test
+  evidence before sign-off.
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-16 | **Last Amended**: 2026-05-16
+**Version**: 1.2.0 | **Ratified**: 2026-05-16 | **Last Amended**: 2026-05-17

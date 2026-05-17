@@ -47,6 +47,29 @@ class ClarificationSlot(str, Enum):
     WEATHER = "weather"
 
 
+class DestinationSuggestionKind(str, Enum):
+    REGION = "region"
+    DESTINATION = "destination"
+
+
+class DestinationSuggestionSource(str, Enum):
+    CURATED = "curated"
+    TREND = "trend"
+    EXTRACTED = "extracted"
+
+
+class DateFlexibility(str, Enum):
+    FIXED = "fixed"
+    FEW_DAYS = "few-days"
+    WEEK_FLEX = "week-flex"
+    FULLY_FLEXIBLE = "fully-flexible"
+
+
+class DestinationSelectionMode(str, Enum):
+    SINGLE = "single"
+    COMPARE = "compare"
+
+
 class ClarificationBudgetRange(BaseModel):
     minimum: float | None = Field(default=None, ge=0)
     maximum: float | None = Field(default=None, ge=0)
@@ -99,6 +122,10 @@ class ClarificationState(BaseModel):
     trip_length: ClarificationSlotState
     budget: ClarificationSlotState
     weather: ClarificationSlotState | None = None
+    destination_suggestions: list[DestinationSuggestion] = Field(default_factory=list)
+    supports_multi_destination_compare: bool = False
+    destination_selection_mode: DestinationSelectionMode | None = None
+    resolved_destination_candidates: list[str] = Field(default_factory=list)
     next_question: ClarificationQuestion | None = None
     recap: ClarificationRecap = Field(default_factory=ClarificationRecap)
     all_critical_slots_resolved: bool = False
@@ -117,6 +144,52 @@ class WeatherPreference(BaseModel):
     temperature: Literal["warm", "cool", "pleasant"] | None = None
     precipitation: Literal["avoid_rain", "rain_ok"] | None = None
     source_text: str | None = Field(default=None, max_length=240)
+
+
+class FlightPreferenceConstraints(BaseModel):
+    nonstop: bool | None = None
+    max_travel_hours: float | None = Field(default=None, gt=0, le=48)
+
+
+class DestinationSuggestion(BaseModel):
+    id: str = Field(min_length=1, max_length=120)
+    kind: DestinationSuggestionKind
+    label: str = Field(min_length=1, max_length=120)
+    parent_region: str | None = Field(default=None, max_length=120)
+    signals: list[str] = Field(default_factory=list)
+    popularity_score: float | None = Field(default=None, ge=0)
+    source: DestinationSuggestionSource = DestinationSuggestionSource.CURATED
+
+
+class RecommendationComparison(BaseModel):
+    travel_time_fit: float | None = Field(default=None, ge=0, le=1)
+    budget_fit: float | None = Field(default=None, ge=0, le=1)
+    style_fit: float | None = Field(default=None, ge=0, le=1)
+    flexibility_fit: float | None = Field(default=None, ge=0, le=1)
+
+
+class RecommendationPackage(BaseModel):
+    bundle_id: str = Field(min_length=1, max_length=120)
+    destination: str = Field(min_length=1, max_length=120)
+    score: float = 0.0
+    rationale: list[str] = Field(default_factory=list)
+    estimated_total_cost: float | None = Field(default=None, ge=0)
+    comparison: RecommendationComparison | None = None
+
+
+class FlightOptionsGroup(BaseModel):
+    primary: list[SearchResult] = Field(default_factory=list)
+    nearby_date_alternatives: list[SearchResult] = Field(default_factory=list)
+    partial_availability: bool = False
+    warnings: list[str] = Field(default_factory=list)
+
+
+class LodgingOptionsGroup(BaseModel):
+    hotels: list[StaySearchResult] = Field(default_factory=list)
+    bed_and_breakfasts: list[StaySearchResult] = Field(default_factory=list)
+    vacation_rentals: list[StaySearchResult] = Field(default_factory=list)
+    partial_availability: bool = False
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ClarificationAnswer(BaseModel):
@@ -145,9 +218,14 @@ class ClarificationRecapEdit(BaseModel):
 
 class ConstraintUpdates(BaseModel):
     destination: str | None = Field(default=None, max_length=120)
+    destination_candidates: list[str] = Field(default_factory=list)
+    destination_selection_mode: DestinationSelectionMode | None = None
     date_range: SearchDateRange | None = None
     trip_length_days: int | None = Field(default=None, ge=1, le=60)
     budget_range: ClarificationBudgetRange | None = None
+    date_flexibility: DateFlexibility | None = None
+    flight_preferences: FlightPreferenceConstraints | None = None
+    trip_style_tags: list[str] = Field(default_factory=list)
     weather_preference: WeatherPreference | None = None
     explicit_unknown_slots: list[ClarificationSlot] = Field(default_factory=list)
 
@@ -162,6 +240,11 @@ class SearchRequest(BaseModel):
     date_range: SearchDateRange | None = None
     trip_length_days: int | None = Field(default=None, ge=1, le=60)
     budget_range: ClarificationBudgetRange | None = None
+    date_flexibility: DateFlexibility | None = None
+    flight_preferences: FlightPreferenceConstraints | None = None
+    trip_style_tags: list[str] = Field(default_factory=list)
+    destination_candidates: list[str] = Field(default_factory=list)
+    destination_selection_mode: DestinationSelectionMode | None = None
     weather_preference: WeatherPreference | None = None
     travelers: TravelerCounts = Field(default_factory=TravelerCounts)
     stay_filters: StayFilters = Field(default_factory=StayFilters)
@@ -195,10 +278,15 @@ class SearchRequest(BaseModel):
 
 class AppliedFilters(BaseModel):
     destination: str | None = None
+    destination_candidates: list[str] = Field(default_factory=list)
+    destination_selection_mode: DestinationSelectionMode | None = None
     origin: str | None = None
     date_range: SearchDateRange | None = None
     trip_length_days: int | None = None
     budget_range: ClarificationBudgetRange | None = None
+    date_flexibility: DateFlexibility | None = None
+    flight_preferences: FlightPreferenceConstraints | None = None
+    trip_style_tags: list[str] = Field(default_factory=list)
     weather_preference: WeatherPreference | None = None
     travelers: TravelerCounts
     stay_filters: StayFilters
@@ -208,10 +296,15 @@ class AppliedFilters(BaseModel):
     def from_request(cls, request: SearchRequest) -> "AppliedFilters":
         return cls(
             destination=request.destination,
+            destination_candidates=request.destination_candidates,
+            destination_selection_mode=request.destination_selection_mode,
             origin=request.origin,
             date_range=request.date_range,
             trip_length_days=request.trip_length_days,
             budget_range=request.budget_range,
+            date_flexibility=request.date_flexibility,
+            flight_preferences=request.flight_preferences,
+            trip_style_tags=request.trip_style_tags,
             weather_preference=request.weather_preference,
             travelers=request.travelers,
             stay_filters=request.stay_filters,
@@ -278,6 +371,9 @@ class SearchResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     results: list[SearchResult] = Field(default_factory=list)
     clarification_state: ClarificationState | None = None
+    recommendation_packages: list[RecommendationPackage] = Field(default_factory=list)
+    flight_options: FlightOptionsGroup | None = None
+    lodging_options: LodgingOptionsGroup | None = None
 
 
 class ProviderStatusResponse(BaseModel):
