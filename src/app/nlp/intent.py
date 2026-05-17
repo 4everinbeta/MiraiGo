@@ -25,7 +25,7 @@ MODES = {
 
 # Common cities for better extraction
 COMMON_CITIES = [
-    "Paris", "London", "Tokyo", "New York", "Miami", "Denver", "Rome", "Barcelona", "Berlin", "Dubai"
+    "Paris", "London", "Tokyo", "New York", "Miami", "Denver", "Rome", "Barcelona", "Berlin", "Dubai", "Lisboa"
 ]
 
 NUMBER_MAP = {
@@ -162,7 +162,7 @@ def _extract_timeline(query_lower: str, date_range: dict[str, str] | None, found
         return normalized, _build_slot_metadata(
             value=normalized,
             confidence=0.55,
-            ambiguous=True,
+            ambiguous=False,
             source_text="early summer",
         )
 

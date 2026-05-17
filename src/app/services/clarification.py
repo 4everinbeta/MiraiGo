@@ -32,19 +32,9 @@ RELATED_SLOT_GRAPH: dict[ClarificationSlot, tuple[ClarificationSlot, ...]] = {
         ClarificationSlot.TIMELINE,
         ClarificationSlot.BUDGET,
     ),
-    ClarificationSlot.TIMELINE: (
-        ClarificationSlot.TRIP_LENGTH,
-        ClarificationSlot.BUDGET,
-    ),
-    ClarificationSlot.TRIP_LENGTH: (
-        ClarificationSlot.TIMELINE,
-        ClarificationSlot.BUDGET,
-    ),
-    ClarificationSlot.BUDGET: (
-        ClarificationSlot.DESTINATION,
-        ClarificationSlot.TIMELINE,
-        ClarificationSlot.TRIP_LENGTH,
-    ),
+    ClarificationSlot.TIMELINE: (ClarificationSlot.BUDGET,),
+    ClarificationSlot.TRIP_LENGTH: (ClarificationSlot.BUDGET,),
+    ClarificationSlot.BUDGET: (),
 }
 
 SLOT_PROMPTS: dict[ClarificationSlot, ClarificationQuestion] = {
@@ -92,9 +82,7 @@ def slot_requires_follow_up(slot_state: ClarificationSlotState) -> bool:
         return False
     if not slot_state.value_label:
         return True
-    if slot_state.ambiguous:
-        return True
-    return slot_state.confidence < GLOBAL_CONFIDENCE_THRESHOLD
+    return slot_state.ambiguous
 
 
 def all_critical_slots_resolved(slot_states: dict[ClarificationSlot, ClarificationSlotState]) -> bool:

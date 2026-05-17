@@ -18,6 +18,10 @@
 
 **Purpose**: Establish baseline scaffolding and documentation links for this feature implementation.
 
+**Phase Gate (Behavioral Tests First)**: Define and pass unit + integration behavioral tests for setup acceptance before setup implementation tasks.
+
+- [X] T045 [P] Add Phase 1 behavioral unit test gate for setup contract invariants in src/tests/schemas/test_search_schemas.py
+- [X] T046 [P] Add Phase 1 behavioral integration/API gate for additive contract compatibility in src/tests/api/test_search.py
 - [X] T001 Create implementation task baseline in specs/003-destination-guided-recommendations/tasks.md
 - [X] T002 [P] Add feature-specific API type placeholders in web/src/lib/api.ts
 - [X] T003 [P] Add feature-specific backend schema placeholders in src/app/schemas/search.py
@@ -29,7 +33,10 @@
 **Purpose**: Core structures required before any user story implementation.
 
 **⚠️ CRITICAL**: No user story work starts before this phase completes.
+**Phase Gate (Behavioral Tests First)**: Define and pass unit + integration behavioral tests for foundational acceptance before foundational implementation tasks.
 
+- [X] T047 [P] Add Phase 2 behavioral unit test gate for clarification/session baseline behavior in src/tests/services/test_clarification_loop.py
+- [X] T048 [P] Add Phase 2 behavioral integration/API gate for foundational clarification response behavior in src/tests/api/test_search.py
 - [X] T004 Extend clarification slot/state models for destination suggestion payloads in src/app/schemas/search.py
 - [X] T005 Implement shared suggestion builder utilities for destination narrowing in src/app/services/clarification.py
 - [X] T006 Add request/response compatibility handling for new additive contract fields in src/app/services/search.py
@@ -135,8 +142,8 @@
 
 ### Phase Dependencies
 
-- **Phase 1 (Setup)**: Starts immediately.
-- **Phase 2 (Foundational)**: Depends on Phase 1; blocks all user stories.
+- **Phase 1 (Setup)**: Starts immediately; Phase 1 implementation tasks depend on T045 + T046 behavioral gate tests.
+- **Phase 2 (Foundational)**: Depends on Phase 1; foundational implementation tasks depend on T047 + T048 behavioral gate tests; blocks all user stories.
 - **Phase 3 (US1)**: Depends on Phase 2; defines MVP.
 - **Phase 4 (US2)**: Depends on Phase 2 and integrates with US1 state model.
 - **Phase 5 (US3)**: Depends on Phase 2 and consumes US1/US2 context fields.
@@ -157,8 +164,8 @@
 
 ### Parallel Opportunities
 
-- Phase 1: T002 and T003 parallel.
-- Phase 2: T007, T008, T009 parallel after T004–T006 baseline.
+- Phase 1: T045 and T046 parallel first; T002 and T003 parallel after phase gate tests pass.
+- Phase 2: T047 and T048 parallel first; T007, T008, T009 parallel after T004–T006 baseline.
 - US1: T010–T013 parallel; T017 and T019 parallel after backend contract fields exist.
 - US2: T020–T023 parallel; T027 and T028 parallel after T024–T026.
 - US3: T030–T033 parallel; T037 and T038 parallel after T034–T036.
