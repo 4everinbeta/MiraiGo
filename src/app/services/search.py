@@ -38,9 +38,12 @@ from src.app.schemas.search import (
 from src.app.services.clarification import (
     CRITICAL_SLOT_ORDER,
     GLOBAL_CONFIDENCE_THRESHOLD,
+    build_destination_suggestions,
     build_clarification_state,
     make_history_entry,
+    normalize_destination_candidates,
     reopen_related_slots,
+    resolve_destination_selection_mode,
     slot_state_from_metadata,
 )
 
@@ -177,10 +180,42 @@ class SearchService:
         if slot_states[ClarificationSlot.DESTINATION].confidence < GLOBAL_CONFIDENCE_THRESHOLD:
             warnings.append("Destination is still unclear; please confirm to improve results.")
 
+        resolved_destination_candidates = normalize_destination_candidates(
+            destination_candidates=request.destination_candidates,
+            destination=request.destination,
+        )
+        selection_mode = resolve_destination_selection_mode(
+            request.destination_selection_mode,
+            resolved_destination_candidates,
+            request.destination,
+        )
+        if (
+            resolved_destination_candidates != request.destination_candidates
+            or selection_mode != request.destination_selection_mode
+        ):
+            request = request.model_copy(
+                update={
+                    "destination_candidates": resolved_destination_candidates,
+                    "destination_selection_mode": selection_mode,
+                }
+            )
+
         clarification_state = build_clarification_state(
             slot_states,
             history=history,
             weather_state=slot_states.get(ClarificationSlot.WEATHER),
+        )
+        clarification_state = clarification_state.model_copy(
+            update={
+                "destination_suggestions": build_destination_suggestions(
+                    destination_state=slot_states[ClarificationSlot.DESTINATION],
+                    query_text=request.query,
+                    selected_candidates=resolved_destination_candidates,
+                ),
+                "supports_multi_destination_compare": True,
+                "destination_selection_mode": selection_mode,
+                "resolved_destination_candidates": resolved_destination_candidates,
+            }
         )
         return request.model_copy(update={"clarification_state": clarification_state}), warnings, clarification_state
 
@@ -498,6 +533,13 @@ class SearchService:
                     action="constraint_update",
                 )
             )
+        if constraint_updates.destination_candidates:
+            updates["destination_candidates"] = normalize_destination_candidates(
+                destination_candidates=constraint_updates.destination_candidates,
+                destination=updates.get("destination"),
+            )
+        if constraint_updates.destination_selection_mode is not None:
+            updates["destination_selection_mode"] = constraint_updates.destination_selection_mode
         if constraint_updates.date_range is not None:
             previous = slot_states[ClarificationSlot.TIMELINE].value_label
             updates["date_range"] = constraint_updates.date_range
@@ -560,6 +602,14 @@ class SearchService:
                     action="constraint_update",
                 )
             )
+        if constraint_updates.date_flexibility is not None:
+            updates["date_flexibility"] = constraint_updates.date_flexibility
+        if constraint_updates.flight_preferences is not None:
+            updates["flight_preferences"] = constraint_updates.flight_preferences
+        if constraint_updates.trip_style_tags:
+            updates["trip_style_tags"] = [
+                tag.strip() for tag in constraint_updates.trip_style_tags if tag.strip()
+            ]
         if constraint_updates.weather_preference is not None:
             previous = slot_states[ClarificationSlot.WEATHER].value_label
             updates["weather_preference"] = constraint_updates.weather_preference

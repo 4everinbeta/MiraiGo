@@ -100,7 +100,7 @@ class PartialFailureFlightProvider(TravelProvider):
         raise ProviderError("upstream timeout")
 
 
-def test_post_search_returns_canonical_results(fake_redis, db_session):
+def test_post_search_returns_canonical_results():
     search_service.providers = [ConfiguredProvider(), DisabledProvider()]
 
     response = client.post(
@@ -131,7 +131,7 @@ def test_post_search_returns_canonical_results(fake_redis, db_session):
     assert any(status["provider"] == "disabled" and not status["configured"] for status in payload["provider_status"])
 
 
-def test_post_search_handles_no_configured_providers(fake_redis):
+def test_post_search_handles_no_configured_providers():
     search_service.providers = [DisabledProvider()]
 
     response = client.post(
@@ -157,7 +157,7 @@ def test_post_search_handles_no_configured_providers(fake_redis):
     assert payload["warnings"]
 
 
-def test_post_search_returns_clarification_state_with_weather(fake_redis):
+def test_post_search_returns_clarification_state_with_weather():
     search_service.providers = [DisabledProvider()]
 
     response = client.post(
@@ -182,7 +182,7 @@ def test_post_search_returns_clarification_state_with_weather(fake_redis):
     assert payload["clarification_state"]["weather"]["source_text"] in {"warm weather", "warm"}
 
 
-def test_post_search_warns_when_flight_provider_returns_no_offers(fake_redis):
+def test_post_search_warns_when_flight_provider_returns_no_offers():
     search_service.providers = [EmptyFlightProvider()]
 
     response = client.post(
@@ -209,7 +209,7 @@ def test_post_search_warns_when_flight_provider_returns_no_offers(fake_redis):
     assert any("returned no flight offers" in warning for warning in payload["warnings"])
 
 
-def test_post_search_partial_dual_provider_failure_keeps_available_results(fake_redis):
+def test_post_search_partial_dual_provider_failure_keeps_available_results():
     search_service.providers = [ConfiguredProvider(), PartialFailureFlightProvider()]
 
     response = client.post(
@@ -248,7 +248,7 @@ def test_post_search_partial_dual_provider_failure_keeps_available_results(fake_
     )
 
 
-def test_post_search_multilingual_destination_and_synonym_keep_clarification_flow(fake_redis):
+def test_post_search_multilingual_destination_and_synonym_keep_clarification_flow():
     search_service.providers = [DisabledProvider()]
 
     response = client.post(
@@ -274,7 +274,7 @@ def test_post_search_multilingual_destination_and_synonym_keep_clarification_flo
     assert payload["clarification_state"]["next_question"]["slot"] != "destination"
 
 
-def test_search_handles_follow_up_clarification_turn(fake_redis):
+def test_search_handles_follow_up_clarification_turn():
     search_service.providers = [DisabledProvider()]
 
     first_response = client.post(

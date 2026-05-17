@@ -14,6 +14,7 @@ DATES = [
     "July", "August", "September", "October", "November",
     "summer", "winter", "spring", "fall", "next year", "next month"
 ]
+DATE_TERMS_LOWER = {token.lower() for token in DATES}
 
 MODES = {
     "flight": ["flight", "plane", "flying"],
@@ -24,7 +25,7 @@ MODES = {
 
 # Common cities for better extraction
 COMMON_CITIES = [
-    "Paris", "London", "Tokyo", "New York", "Miami", "Denver", "Rome", "Barcelona", "Berlin", "Dubai"
+    "Paris", "London", "Tokyo", "New York", "Miami", "Denver", "Rome", "Barcelona", "Berlin", "Dubai", "Lisboa"
 ]
 
 NUMBER_MAP = {
@@ -40,6 +41,61 @@ QUALITATIVE_BUDGET_MAP = {
     "luxury": (3500, 10000),
     "luxurious": (3500, 10000),
 }
+
+
+LOCATION_STOP_TOKENS = {
+    "for", "with", "that", "which", "who", "preferably", "prefer", "including", "includes",
+}
+LOCATION_TRAILING_STOP_TOKENS = LOCATION_STOP_TOKENS | {
+    "from", "between", "and", "on", "next", "this", "my", "to", "in", "near", "at",
+}
+TO_VERB_TOKENS = {"find", "go", "travel", "plan", "book", "visit", "stay"}
+
+
+def _normalize_location_name(raw_location: str) -> str:
+    cleaned = raw_location.strip(" ,.;:!?")
+    if not cleaned:
+        return cleaned
+    tokens = []
+    for token in cleaned.split():
+        if len(token) <= 3 and token.isupper():
+            tokens.append(token)
+        else:
+            tokens.append(token.capitalize())
+    return " ".join(tokens)
+
+
+def _extract_location_phrase(query: str) -> str | None:
+    for match in re.finditer(
+        r"\b(to|in|near|at)\b\s+([A-Za-z][A-Za-z'\-]*(?:\s+[A-Za-z][A-Za-z'\-]*){0,5})",
+        query,
+        re.IGNORECASE,
+    ):
+        preposition = match.group(1).lower()
+        raw_location = match.group(2).strip()
+        if not raw_location:
+            continue
+        candidate_tokens = raw_location.split()
+        while candidate_tokens and candidate_tokens[0].lower() in {"the", "a", "an"}:
+            candidate_tokens = candidate_tokens[1:]
+        if not candidate_tokens:
+            continue
+        if preposition == "to" and candidate_tokens[0].lower() in TO_VERB_TOKENS:
+            continue
+        trimmed_tokens: list[str] = []
+        for token in candidate_tokens:
+            token_lower = token.lower()
+            if token_lower in LOCATION_TRAILING_STOP_TOKENS:
+                break
+            trimmed_tokens.append(token)
+        if not trimmed_tokens:
+            continue
+        candidate_tokens = trimmed_tokens
+        first_token = candidate_tokens[0].lower()
+        if first_token in LOCATION_STOP_TOKENS or first_token in DATE_TERMS_LOWER:
+            continue
+        return _normalize_location_name(" ".join(candidate_tokens))
+    return None
 
 
 def _build_slot_metadata(
@@ -106,7 +162,7 @@ def _extract_timeline(query_lower: str, date_range: dict[str, str] | None, found
         return normalized, _build_slot_metadata(
             value=normalized,
             confidence=0.55,
-            ambiguous=True,
+            ambiguous=False,
             source_text="early summer",
         )
 
@@ -191,10 +247,7 @@ def extract_intent(query: str) -> Dict[str, Any]:
     query_lower = query.lower()
     
     # 1. Try explicit location keywords (to|in|near|at)
-    location = None
-    location_match = re.search(r'(?:to|in|near|at)\s+([A-Z][a-z]+)', query)
-    if location_match:
-        location = location_match.group(1)
+    location = _extract_location_phrase(query)
     
     # 2. If no explicit match, try finding common cities directly
     if not location:

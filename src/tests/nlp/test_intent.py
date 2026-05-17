@@ -30,3 +30,12 @@ def test_extract_intent_implicit_location():
     intent = extract_intent(query)
     assert intent["location"] == "Paris"
     assert "mountain" in intent["qualities"]
+
+
+def test_extract_intent_handles_lowercase_destination_after_preposition():
+    query = (
+        "i would like to find a flight, car, and stay for july in england "
+        "that includes stays in the cotswold's and cornwall"
+    )
+    intent = extract_intent(query)
+    assert intent["location"] == "England"

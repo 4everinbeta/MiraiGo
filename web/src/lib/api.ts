@@ -35,6 +35,58 @@ export interface WeatherPreference {
   source_text?: string | null
 }
 
+export type DestinationSuggestionKind = 'region' | 'destination'
+export type DestinationSuggestionSource = 'curated' | 'trend' | 'extracted'
+
+export interface DestinationSuggestion {
+  id: string
+  kind: DestinationSuggestionKind
+  label: string
+  parent_region?: string | null
+  signals?: string[]
+  popularity_score?: number
+  source: DestinationSuggestionSource
+}
+
+export type DateFlexibility = 'fixed' | 'few-days' | 'week-flex' | 'fully-flexible'
+export type DestinationSelectionMode = 'single' | 'compare'
+
+export interface FlightPreferenceConstraints {
+  nonstop?: boolean
+  max_travel_hours?: number
+}
+
+export interface RecommendationComparison {
+  travel_time_fit?: number
+  budget_fit?: number
+  style_fit?: number
+  flexibility_fit?: number
+}
+
+export interface RecommendationPackage {
+  bundle_id: string
+  destination: string
+  score: number
+  rationale: string[]
+  estimated_total_cost?: number
+  comparison?: RecommendationComparison
+}
+
+export interface FlightOptionsGroup {
+  primary?: FlightSearchResult[]
+  nearby_date_alternatives?: FlightSearchResult[]
+  partial_availability?: boolean
+  warnings?: string[]
+}
+
+export interface LodgingOptionsGroup {
+  hotels?: StaySearchResult[]
+  bed_and_breakfasts?: StaySearchResult[]
+  vacation_rentals?: StaySearchResult[]
+  partial_availability?: boolean
+  warnings?: string[]
+}
+
 export interface ClarificationSlotState {
   slot: ClarificationSlot
   value_label?: string | null
@@ -69,6 +121,10 @@ export interface ClarificationState {
   trip_length: ClarificationSlotState
   budget: ClarificationSlotState
   weather?: ClarificationSlotState | null
+  destination_suggestions?: DestinationSuggestion[]
+  supports_multi_destination_compare?: boolean
+  destination_selection_mode?: DestinationSelectionMode
+  resolved_destination_candidates?: string[]
   next_question?: ClarificationQuestion | null
   recap: ClarificationRecap
   all_critical_slots_resolved: boolean
@@ -88,11 +144,16 @@ export interface ClarificationRecapEdit {
 
 export interface ConstraintUpdates {
   destination?: string
+  destination_candidates?: string[]
+  destination_selection_mode?: DestinationSelectionMode
   date_range?: SearchDateRange
   trip_length_days?: number
   budget_range?: ClarificationBudgetRange
+  date_flexibility?: DateFlexibility
+  flight_preferences?: FlightPreferenceConstraints
+  trip_style_tags?: string[]
   weather_preference?: WeatherPreference
-  explicit_unknown_slots: ClarificationSlot[]
+  explicit_unknown_slots?: ClarificationSlot[]
 }
 
 export interface SearchRequest {
@@ -103,6 +164,11 @@ export interface SearchRequest {
   date_range?: SearchDateRange
   trip_length_days?: number
   budget_range?: ClarificationBudgetRange
+  date_flexibility?: DateFlexibility
+  flight_preferences?: FlightPreferenceConstraints
+  trip_style_tags?: string[]
+  destination_candidates?: string[]
+  destination_selection_mode?: DestinationSelectionMode
   weather_preference?: WeatherPreference
   travelers: TravelerCounts
   stay_filters: StayFilters
@@ -112,6 +178,7 @@ export interface SearchRequest {
   clarification_answer?: ClarificationAnswer
   recap_edit?: ClarificationRecapEdit
   constraint_updates?: ConstraintUpdates
+  clarification_state?: ClarificationState | null
 }
 
 export interface ProviderStatus {
@@ -167,10 +234,15 @@ export interface SearchResponse {
   requested_inventory: InventoryType[]
   applied_filters: {
     destination?: string | null
+    destination_candidates?: string[]
+    destination_selection_mode?: DestinationSelectionMode | null
     origin?: string | null
     date_range?: SearchDateRange | null
     trip_length_days?: number | null
     budget_range?: ClarificationBudgetRange | null
+    date_flexibility?: DateFlexibility | null
+    flight_preferences?: FlightPreferenceConstraints | null
+    trip_style_tags?: string[]
     weather_preference?: WeatherPreference | null
     travelers: TravelerCounts
     stay_filters: StayFilters
@@ -180,6 +252,9 @@ export interface SearchResponse {
   warnings: string[]
   results: SearchResult[]
   clarification_state?: ClarificationState | null
+  recommendation_packages?: RecommendationPackage[]
+  flight_options?: FlightOptionsGroup | null
+  lodging_options?: LodgingOptionsGroup | null
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
