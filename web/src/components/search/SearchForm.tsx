@@ -124,6 +124,7 @@ export default function SearchForm({
         explicit_unknown: true,
       },
     })
+    setAnswerText('')
   }
 
   const toggleSuggestion = (suggestion: DestinationSuggestion) => {
@@ -228,7 +229,7 @@ export default function SearchForm({
               {isSubmitting ? 'Submitting…' : 'Submit travel intent'}
             </Button>
             {!clarificationState && (
-              <p className="text-base font-normal leading-[1.5] text-muted-foreground">
+              <p className="text-base font-normal leading-[1.5] text-sumi/80">
                 {EMPTY_COPY_BODY}
               </p>
             )}
@@ -238,7 +239,7 @@ export default function SearchForm({
         {!clarificationState && (
           <section className="rounded-2xl border border-border/80 bg-[#FEE2E2] p-6">
             <h2 className="text-[20px] font-semibold leading-[1.2] text-sumi">{EMPTY_COPY_HEADING}</h2>
-            <p className="mt-2 text-base font-normal leading-[1.5] text-muted-foreground">{EMPTY_COPY_BODY}</p>
+            <p className="mt-2 text-base font-normal leading-[1.5] text-sumi/80">{EMPTY_COPY_BODY}</p>
           </section>
         )}
 

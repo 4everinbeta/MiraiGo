@@ -1,0 +1,3 @@
+slideforge API key
+copilot-mcp: sf_live_cc9ded8d418895e54e5221280f154af1f6672868eaf51ba5
+

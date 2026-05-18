@@ -32,8 +32,12 @@ RELATED_SLOT_GRAPH: dict[ClarificationSlot, tuple[ClarificationSlot, ...]] = {
         ClarificationSlot.TIMELINE,
         ClarificationSlot.BUDGET,
     ),
-    ClarificationSlot.TIMELINE: (ClarificationSlot.BUDGET,),
-    ClarificationSlot.TRIP_LENGTH: (ClarificationSlot.BUDGET,),
+    ClarificationSlot.TIMELINE: (
+        ClarificationSlot.BUDGET,
+    ),
+    ClarificationSlot.TRIP_LENGTH: (
+        ClarificationSlot.BUDGET,
+    ),
     ClarificationSlot.BUDGET: (),
 }
 
@@ -82,7 +86,14 @@ def slot_requires_follow_up(slot_state: ClarificationSlotState) -> bool:
         return False
     if not slot_state.value_label:
         return True
-    return slot_state.ambiguous
+    if slot_state.ambiguous:
+        return True
+    if slot_state.confidence < GLOBAL_CONFIDENCE_THRESHOLD:
+        return slot_state.slot in {
+            ClarificationSlot.DESTINATION,
+            ClarificationSlot.BUDGET,
+        }
+    return False
 
 
 def all_critical_slots_resolved(slot_states: dict[ClarificationSlot, ClarificationSlotState]) -> bool:

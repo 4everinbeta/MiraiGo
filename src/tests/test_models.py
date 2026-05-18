@@ -1,18 +1,25 @@
-from unittest.mock import MagicMock
-from src.app.models.user import User
-# Need to import these so SQLAlchemy knows about them for relationships
-from src.app.models.search import SearchHistory, UserPreference
+from src.app.models.search import ProviderRun, SearchRun
 
-def test_user_model_creation():
-    user = User(
-        full_name="Test User",
-        email="test@example.com",
-        hashed_password="hashed_password",
-        is_active=True,
-        is_superuser=False
+
+def test_search_run_model_creation():
+    search_run = SearchRun(
+        search_id="abc123",
+        query="Trip to Lisbon",
+        inventories=["stay"],
+        request_payload={"destination": "Lisbon"},
+        warnings=[],
+        result_count=1,
     )
-    assert user.full_name == "Test User"
-    assert user.email == "test@example.com"
-    assert user.hashed_password == "hashed_password"
-    assert user.is_active is True
-    assert user.is_superuser is False
+    provider_run = ProviderRun(
+        provider="duffel",
+        inventory_type="stay",
+        configured=True,
+        success=True,
+        cache_hit=False,
+        result_count=1,
+        duration_ms=120,
+    )
+    search_run.provider_runs.append(provider_run)
+
+    assert search_run.search_id == "abc123"
+    assert search_run.provider_runs[0].provider == "duffel"

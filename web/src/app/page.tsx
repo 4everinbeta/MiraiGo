@@ -1,12 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import ItineraryPricingResult from '@/components/itinerary/ItineraryPricingResult'
+import ItineraryProposalList from '@/components/itinerary/ItineraryProposalList'
 import SearchForm from '@/components/search/SearchForm'
 import ResultsDashboard from '@/components/search/ResultsDashboard'
 import {
   type ClarificationState,
   fetchProviderStatuses,
+  priceItinerary,
+  proposeItinerary,
   searchTrips,
+  type ItineraryPriceResponse,
+  type ItineraryProposal,
   type ProviderStatus,
   type SearchRequest,
   type SearchResponse,
@@ -26,6 +32,15 @@ interface TurnSessionState {
   flight_filters: SearchRequest['flight_filters']
   currency_code: string
   limit_per_provider: number
+}
+
+function slotValueOrUndefined(value: string | null | undefined): string | undefined {
+  if (!value) return undefined
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'missing' || normalized === "i don't know") {
+    return undefined
+  }
+  return value
 }
 
 const DEFAULT_TURN_BASE: Omit<TurnSessionState, 'query' | 'destination' | 'origin' | 'date_range'> = {
@@ -69,11 +84,24 @@ function resolveTurnRequest(
   }
 }
 
+const ITINERARY_KEYWORDS = ['itinerary', 'trip options', 'best travel options', 'budget for']
+
+function isItineraryIntent(query?: string): boolean {
+  if (!query) return false
+  const normalized = query.toLowerCase()
+  return ITINERARY_KEYWORDS.some((keyword) => normalized.includes(keyword))
+}
+
 export default function Home() {
   const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([])
   const [response, setResponse] = useState<SearchResponse | null>(null)
+  const [proposals, setProposals] = useState<ItineraryProposal[]>([])
+  const [selectedProposal, setSelectedProposal] = useState<ItineraryProposal | null>(null)
+  const [pricingResult, setPricingResult] = useState<ItineraryPriceResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isProposalLoading, setIsProposalLoading] = useState(false)
+  const [isPricingLoading, setIsPricingLoading] = useState(false)
   const [clarificationState, setClarificationState] = useState<ClarificationState | null>(null)
   const [turnSession, setTurnSession] = useState<TurnSessionState | null>(null)
 
@@ -101,25 +129,68 @@ export default function Home() {
   }, [])
 
   const handleSearch = async (request: SearchRequest) => {
+    if (isItineraryIntent(request.query)) {
+      setErrorMessage(null)
+      setResponse(null)
+      setPricingResult(null)
+      setSelectedProposal(null)
+      setIsProposalLoading(true)
+      try {
+        const proposed = await proposeItinerary({ query: request.query ?? '' })
+        setProposals(proposed.proposals)
+      } catch {
+        setProposals([])
+        setErrorMessage('Unable to generate itinerary options right now.')
+      } finally {
+        setIsProposalLoading(false)
+      }
+      return
+    }
+
     const turnRequest = resolveTurnRequest(request, turnSession)
     setIsSubmitting(true)
     setErrorMessage(null)
+    setProposals([])
+    setSelectedProposal(null)
+    setPricingResult(null)
     try {
       const nextResponse = await searchTrips(turnRequest)
       setResponse(nextResponse)
       setProviderStatuses(nextResponse.provider_status)
       setClarificationState(nextResponse.clarification_state ?? null)
+      const clarificationDestination = slotValueOrUndefined(
+        nextResponse.clarification_state?.destination?.value_label
+      )
       setTurnSession({
         query: turnRequest.query,
         inventory: turnRequest.inventory,
-        destination: nextResponse.applied_filters.destination ?? undefined,
-        origin: nextResponse.applied_filters.origin ?? undefined,
-        date_range: nextResponse.applied_filters.date_range ?? undefined,
+        destination:
+          nextResponse.applied_filters.destination ??
+          turnRequest.destination ??
+          clarificationDestination ??
+          turnSession?.destination ??
+          undefined,
+        origin: nextResponse.applied_filters.origin ?? turnRequest.origin ?? turnSession?.origin ?? undefined,
+        date_range:
+          nextResponse.applied_filters.date_range ??
+          turnRequest.date_range ??
+          turnSession?.date_range ??
+          undefined,
         trip_length_days:
-          nextResponse.applied_filters.trip_length_days ?? turnRequest.trip_length_days ?? undefined,
-        budget_range: nextResponse.applied_filters.budget_range ?? turnRequest.budget_range ?? undefined,
+          nextResponse.applied_filters.trip_length_days ??
+          turnRequest.trip_length_days ??
+          turnSession?.trip_length_days ??
+          undefined,
+        budget_range:
+          nextResponse.applied_filters.budget_range ??
+          turnRequest.budget_range ??
+          turnSession?.budget_range ??
+          undefined,
         weather_preference:
-          nextResponse.applied_filters.weather_preference ?? turnRequest.weather_preference ?? undefined,
+          nextResponse.applied_filters.weather_preference ??
+          turnRequest.weather_preference ??
+          turnSession?.weather_preference ??
+          undefined,
         travelers: turnRequest.travelers,
         stay_filters: turnRequest.stay_filters,
         flight_filters: turnRequest.flight_filters,
@@ -131,6 +202,27 @@ export default function Home() {
       setErrorMessage('The search request failed. Check provider credentials or try a broader query.')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleSelectProposal = async (proposal: ItineraryProposal) => {
+    setSelectedProposal(proposal)
+    setPricingResult(null)
+    setErrorMessage(null)
+    setIsPricingLoading(true)
+    try {
+      const result = await priceItinerary({
+        proposal_id: proposal.proposal_id,
+        proposal_snapshot: proposal,
+        travelers: turnSession?.travelers ?? { adults: 2, children: 1, infants: 0 },
+        currency_code: 'USD',
+      })
+      setPricingResult(result)
+      setProviderStatuses(result.provider_status)
+    } catch {
+      setErrorMessage('Live itinerary pricing failed. Please try selecting again.')
+    } finally {
+      setIsPricingLoading(false)
     }
   }
 
@@ -165,17 +257,36 @@ export default function Home() {
 
         <SearchForm
           clarificationState={clarificationState}
-          isSubmitting={isSubmitting}
+          isSubmitting={isSubmitting || isProposalLoading || isPricingLoading}
           preservedRequest={turnSession}
           onSearch={handleSearch}
         />
 
-        <ResultsDashboard
-          errorMessage={errorMessage}
-          isLoading={isSubmitting}
-          providerStatuses={providerStatuses}
-          response={response}
-        />
+        {selectedProposal && pricingResult ? (
+          <ItineraryPricingResult
+            result={pricingResult}
+            proposal={selectedProposal}
+            onBack={() => {
+              setPricingResult(null)
+              setSelectedProposal(null)
+            }}
+          />
+        ) : proposals.length > 0 || isProposalLoading ? (
+          <ItineraryProposalList
+            proposals={proposals}
+            isLoading={isProposalLoading}
+            onSelect={(proposal) => {
+              void handleSelectProposal(proposal)
+            }}
+          />
+        ) : (
+          <ResultsDashboard
+            errorMessage={errorMessage}
+            isLoading={isSubmitting || isProposalLoading || isPricingLoading}
+            providerStatuses={providerStatuses}
+            response={response}
+          />
+        )}
       </div>
     </main>
   )

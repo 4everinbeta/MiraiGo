@@ -80,3 +80,14 @@ def test_weather_preferences_have_normalized_values_and_follow_up_eligibility():
     assert weather_slot["confidence"] < GLOBAL_CONFIDENCE_THRESHOLD
     assert weather_slot["ambiguous"] is True
     assert uncertain_weather_intent["weather_follow_up_eligible"] is True
+
+
+def test_unsupported_language_pattern_stays_ambiguous_with_low_confidence():
+    intent = extract_intent("旅行を計画したい")
+    destination = intent["slot_metadata"]["destination"]
+    timeline = intent["slot_metadata"]["timeline"]
+
+    assert destination["value"] is None
+    assert destination["ambiguous"] is True
+    assert destination["confidence"] < GLOBAL_CONFIDENCE_THRESHOLD
+    assert timeline["ambiguous"] is True

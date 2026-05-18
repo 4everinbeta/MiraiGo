@@ -1,15 +1,22 @@
-from unittest.mock import patch, MagicMock
-from src.app.db.session import SessionLocal
-from src.app.db.redis import get_redis_client
+from src.app.db.redis import check_redis_connection, get_redis_client
+from src.app.db.session import SessionLocal, check_database_connection
+
 
 def test_db_session_creation():
-    with patch("src.app.db.session.sessionmaker") as mock_sessionmaker:
-        mock_sessionmaker.return_value = MagicMock()
-        session = SessionLocal()
-        assert session is not None
+    session = SessionLocal()
+    assert session is not None
+    session.close()
+
+
+def test_database_connection_check():
+    assert check_database_connection() is True
+
 
 def test_redis_client_creation():
-    with patch("redis.Redis") as mock_redis:
-        mock_redis.return_value = MagicMock()
-        client = get_redis_client()
-        assert client is not None
+    client = get_redis_client()
+    assert client is not None
+
+
+def test_redis_connection_check(monkeypatch):
+    monkeypatch.setattr("src.app.db.redis.redis_client.ping", lambda: True)
+    assert check_redis_connection() is True
