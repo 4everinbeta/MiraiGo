@@ -2,7 +2,7 @@
 
 ## Decision 1: Hard constraints gate ranking before soft preference scoring
 
-**Decision**: Apply hard-constraint filtering (timeline compatibility, budget bounds, destination type mismatch) before soft ranking signals. Then score remaining candidates on preference fit and confidence.
+**Decision**: Apply hard-constraint filtering (**destination + timeline + budget**) before soft ranking signals. Then score remaining candidates on preference fit and confidence.
 
 **Rationale**: Users perceive "wrong but highly ranked" results as system failure. Hard constraints first ensures top results are valid before optimization.
 
@@ -41,7 +41,7 @@
 
 ## Decision 4: Suggestion rationale must cite at least one user-provided or resolved constraint
 
-**Decision**: Every suggestion includes concise reason tags and one plain-language sentence tied to resolved constraints.
+**Decision**: Every suggestion includes **2–3 concise reason tags** and **one plain-language sentence** tied to resolved constraints.
 
 **Rationale**: Explanation improves trust and enables quicker user correction when constraints are imperfect.
 
@@ -54,7 +54,7 @@
 
 ## Decision 5: Fallback behavior remains visible and constraint-aware
 
-**Decision**: If no high-fit suggestions exist, return constrained fallback suggestions clearly labeled as partial fit with explicit reason labels.
+**Decision**: If no high-fit suggestions exist, return constrained fallback suggestions clearly labeled as partial fit with explicit reason labels. Default suggestion set size remains **3 suggestions**.
 
 **Rationale**: A transparent fallback keeps flow continuity while preserving user agency.
 
@@ -62,3 +62,16 @@
 
 - **Return zero suggestions**: Rejected because it dead-ends user flow.
 - **Return generic popular suggestions without warning**: Rejected because it appears incorrect or random.
+
+---
+
+## Decision 6: LLM-assisted suggestion generation is permitted with hard-constraint guardrails
+
+**Decision**: Use LLM-assisted suggestion generation where helpful, but only after deterministic checks for destination + timeline + budget are applied. Any generated suggestion must pass post-generation constraint validation before display.
+
+**Rationale**: LLM generation can improve variety and relevance language quality while deterministic gates prevent drift, hallucinated mismatches, and loop regressions.
+
+**Alternatives considered**:
+
+- **No LLM usage at all**: Rejected because it limits suggestion quality improvement opportunities.
+- **LLM-first without deterministic validation**: Rejected because it increases risk of constraint violations and inconsistent user outcomes.
