@@ -137,6 +137,7 @@
 - [ ] T044 Update quickstart verification notes after implementation in specs/003-destination-guided-recommendations/quickstart.md
 - [ ] T049 [P] Add service + API tests asserting each recommendation bundle exposes ≥3 comparison dimensions (total_cost, flight_duration, trip_tone_match) in src/tests/services/test_search_dual_provider.py and src/tests/api/test_search.py
 - [ ] T050 [P] Verify preference recap is visible and editable before final recommendation generation (unit test for recap state in web/src/components/search/__tests__/ClarificationFlow.test.tsx)
+- [ ] T051 [P] Add E2E test asserting the full destination → preference → recommendation flow completes within ≤3 clarification turns (FR-016 criterion a) — assert turn counter ≤3 at recommendations-rendered state in web/tests/e2e/clarification.spec.ts
 
 ---
 
