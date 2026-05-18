@@ -136,6 +136,22 @@ LOCATION_TRAILING_STOP_TOKENS = LOCATION_STOP_TOKENS | {
     "from", "between", "and", "on", "next", "this", "my", "to", "in", "near", "at",
 }
 TO_VERB_TOKENS = {"find", "go", "travel", "plan", "book", "visit", "stay"}
+NON_DESTINATION_TOKENS = {
+    "budget",
+    "cheap",
+    "affordable",
+    "moderate",
+    "mid",
+    "midrange",
+    "mid-range",
+    "luxury",
+    "luxurious",
+    "trip",
+    "travel",
+    "vacation",
+    "holiday",
+    "getaway",
+}
 
 
 def _normalize_location_name(raw_location: str) -> str:
@@ -474,6 +490,11 @@ def _is_destination_candidate(value: str) -> bool:
     candidate = value.strip(" ,.")
     lowered = candidate.lower()
     if not candidate:
+        return False
+    tokenized = {token for token in re.split(r"[\s-]+", lowered) if token}
+    if "budget" in tokenized:
+        return False
+    if tokenized and tokenized.issubset(NON_DESTINATION_TOKENS):
         return False
     if lowered in TIMELINE_TERMS:
         return False

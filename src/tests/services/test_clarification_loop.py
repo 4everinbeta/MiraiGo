@@ -300,3 +300,49 @@ def test_early_summer_timeline_does_not_reask_timeline_when_destination_present(
     assert state.timeline.value_label is not None
     assert state.next_question is not None
     assert state.next_question.slot == ClarificationSlot.TRIP_LENGTH
+
+
+def test_timeline_follow_up_accepts_season_answer_without_looping():
+    service = SearchService()
+    first_turn = SearchRequest(query="Trip to Lisbon on a moderate budget")
+
+    _, _, state = service._resolve_request(first_turn)
+    assert state.next_question is not None
+    assert state.next_question.slot == ClarificationSlot.TIMELINE
+
+    second_turn = first_turn.model_copy(
+        update={
+            "clarification_answer": {
+                "slot": ClarificationSlot.TIMELINE,
+                "answer_text": "this summer",
+                "explicit_unknown": False,
+            }
+        }
+    )
+    resolved, _, state = service._resolve_request(second_turn)
+    assert resolved.date_range is not None
+    assert state.next_question is not None
+    assert state.next_question.slot == ClarificationSlot.TRIP_LENGTH
+
+
+def test_budget_follow_up_accepts_qualitative_budget_answer():
+    service = SearchService()
+    first_turn = SearchRequest(query="Trip to Lisbon in June for 7 days")
+
+    _, _, state = service._resolve_request(first_turn)
+    assert state.next_question is not None
+    assert state.next_question.slot == ClarificationSlot.BUDGET
+
+    second_turn = first_turn.model_copy(
+        update={
+            "clarification_answer": {
+                "slot": ClarificationSlot.BUDGET,
+                "answer_text": "moderate budget",
+                "explicit_unknown": False,
+            }
+        }
+    )
+    resolved, _, state = service._resolve_request(second_turn)
+    assert resolved.budget_range is not None
+    assert resolved.budget_range.maximum is not None
+    assert state.next_question is None

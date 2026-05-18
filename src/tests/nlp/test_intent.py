@@ -65,6 +65,14 @@ def test_extract_intent_maps_synonyms_to_canonical_quality():
     assert "beach" in intent["qualities"]
 
 
+def test_extract_intent_does_not_treat_budget_phrase_as_destination():
+    query = "I want a warm beach trip on a moderate budget"
+    intent = extract_intent(query)
+    assert intent["location"] is None
+    assert intent["normalized_budget"] is not None
+    assert intent["normalized_budget"]["category"] in {"mid-range", "budget"}
+
+
 def test_extract_party_size_family_of_three():
     travelers = extract_party_size("Looking for a family of three trip")
     assert travelers is not None

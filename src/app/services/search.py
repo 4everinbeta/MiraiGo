@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import calendar
 from collections import deque
 import hashlib
 import json
 import logging
+import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -15,7 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.app.core.config import settings
 from src.app.db.redis import redis_client
 from src.app.models.search import ProviderRun, SearchRun
-from src.app.nlp.intent import extract_intent
+from src.app.nlp.intent import extract_budget_range, extract_intent
 from src.app.providers import get_provider_registry
 from src.app.providers.base import ProviderError, TravelProvider
 from src.app.schemas.search import (
@@ -663,22 +665,167 @@ class SearchService:
             )
 
     def _parse_trip_length_answer(self, answer_text: str) -> int | None:
+        lowered = answer_text.lower()
         match = next((token for token in answer_text.split() if token.isdigit()), None)
         if match:
             return int(match)
+        word_numbers = {
+            "one": 1,
+            "two": 2,
+            "three": 3,
+            "four": 4,
+            "five": 5,
+            "six": 6,
+            "seven": 7,
+            "eight": 8,
+            "nine": 9,
+            "ten": 10,
+            "eleven": 11,
+            "twelve": 12,
+            "fortnight": 14,
+        }
+        for word, value in word_numbers.items():
+            if f"{word} day" in lowered:
+                return value
+        if "weekend" in lowered:
+            return 2
+        if "week" in lowered:
+            return 7
         return None
 
     def _parse_timeline_answer(self, answer_text: str) -> SearchDateRange | None:
         parsed = self._parse_date_range({"start": answer_text, "end": None})
         if parsed:
             return parsed
+
+        iso_range_match = re.search(
+            r"(\d{4}-\d{2}-\d{2})\s*(?:to|through|until|-)\s*(\d{4}-\d{2}-\d{2})",
+            answer_text,
+            re.IGNORECASE,
+        )
+        if iso_range_match:
+            parsed = self._parse_date_range(
+                {"start": iso_range_match.group(1), "end": iso_range_match.group(2)}
+            )
+            if parsed:
+                return parsed
+
+        answer_intent = extract_intent(answer_text)
+        normalized_timeline = answer_intent.get("normalized_timeline")
+        if isinstance(normalized_timeline, dict):
+            window = normalized_timeline.get("window") or {}
+            start = window.get("start")
+            end = window.get("end")
+            parsed = self._parse_timeline_window(start, end)
+            if parsed:
+                return parsed
+        return None
+
+    def _parse_timeline_window(self, start: str | None, end: str | None) -> SearchDateRange | None:
+        start_date = self._parse_date_value(start)
+        end_date = self._parse_date_value(end)
+        if start_date:
+            return SearchDateRange(start=start_date, end=end_date)
+
+        if not start:
+            return None
+
+        lowered = str(start).strip().lower()
+        month_start = self._month_start(lowered)
+        if month_start:
+            month_end = self._month_end(month_start.year, month_start.month)
+            return SearchDateRange(start=month_start, end=month_end)
+
+        season_range = self._season_range(lowered)
+        if season_range:
+            return SearchDateRange(start=season_range[0], end=season_range[1])
+
+        if lowered == "next month":
+            return self._next_month_range()
+        return None
+
+    def _month_start(self, token: str) -> date | None:
+        months = {
+            "january": 1,
+            "february": 2,
+            "march": 3,
+            "april": 4,
+            "may": 5,
+            "june": 6,
+            "july": 7,
+            "august": 8,
+            "september": 9,
+            "october": 10,
+            "november": 11,
+            "december": 12,
+        }
+        month = months.get(token)
+        if not month:
+            return None
+        today = date.today()
+        year = today.year
+        if month < today.month:
+            year += 1
+        return date(year, month, 1)
+
+    def _month_end(self, year: int, month: int) -> date:
+        last_day = calendar.monthrange(year, month)[1]
+        return date(year, month, last_day)
+
+    def _next_month_range(self) -> SearchDateRange:
+        today = date.today()
+        month = today.month + 1
+        year = today.year
+        if month == 13:
+            month = 1
+            year += 1
+        start = date(year, month, 1)
+        end = self._month_end(year, month)
+        return SearchDateRange(start=start, end=end)
+
+    def _season_range(self, token: str) -> tuple[date, date] | None:
+        year = date.today().year
+        if token == "summer":
+            return date(year, 6, 1), date(year, 8, 31)
+        if token == "spring":
+            return date(year, 3, 1), date(year, 5, 31)
+        if token == "fall":
+            return date(year, 9, 1), date(year, 11, 30)
+        if token == "winter":
+            return date(year, 12, 1), date(year + 1, 2, 28)
+        if token == "early summer":
+            return date(year, 6, 1), date(year, 7, 15)
         return None
 
     def _parse_budget_answer(self, answer_text: str):
-        numbers = [int(item) for item in answer_text.replace("$", "").replace(",", " ").split() if item.isdigit()]
+        from src.app.schemas.search import ClarificationBudgetRange
+        parsed_range = extract_budget_range(answer_text)
+        if parsed_range:
+            return parsed_range
+
+        lowered = answer_text.lower()
+        qualitative_ranges = {
+            "budget": (0, 1500),
+            "cheap": (0, 1500),
+            "affordable": (0, 1500),
+            "moderate": (1500, 3500),
+            "mid-range": (1500, 3500),
+            "midrange": (1500, 3500),
+            "luxury": (3500, 10000),
+            "luxurious": (3500, 10000),
+        }
+        for term, (minimum, maximum) in qualitative_ranges.items():
+            if term in lowered:
+                return ClarificationBudgetRange(
+                    minimum=float(minimum), maximum=float(maximum)
+                )
+
+        numbers = [
+            int(item.replace(",", ""))
+            for item in re.findall(r"\d[\d,]*", answer_text)
+        ]
         if not numbers:
             return None
-        from src.app.schemas.search import ClarificationBudgetRange
         if len(numbers) == 1:
             return ClarificationBudgetRange(minimum=0, maximum=float(numbers[0]))
         low, high = min(numbers[0], numbers[1]), max(numbers[0], numbers[1])
