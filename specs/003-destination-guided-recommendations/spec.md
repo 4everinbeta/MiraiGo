@@ -86,7 +86,7 @@ As a traveler ready to book, I can review live flight options first (including n
 - **FR-013**: System MUST include lodging inventory categories that cover hotels, B&Bs, and vacation rentals when available.
 - **FR-014**: System MUST clearly communicate unavailable inventory or partial provider responses without ending the overall shopping flow.
 - **FR-015**: System MUST preserve comparison context across follow-up interactions so users can iterate without re-entering all prior answers.
-- **FR-016**: System MUST provide an end-to-end planning experience that is at least parity with leading AI travel concierge flows (for example Layla.ai) on conversational guidance, while differentiating with deeper side-by-side comparison and preference transparency.
+- **FR-016**: System MUST provide an end-to-end planning experience where (a) users reach a shortlist within ≤3 follow-up turns (destination → preference → recommendation), (b) each shortlisted option displays ≥3 named comparison dimensions (for example: total cost, flight duration, trip tone match), and (c) all captured preferences are visible in a persistent recap that the user can revise before final recommendations are generated. Layla.ai is used only as a product benchmark reference, not a functional dependency.
 
 ### Key Entities *(include if feature involves data)*
 

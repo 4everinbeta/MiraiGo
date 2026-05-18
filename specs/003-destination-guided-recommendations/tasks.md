@@ -111,7 +111,7 @@
 - [ ] T030 [P] [US3] Add service tests for nearby-date flight alternatives and ordering in src/tests/services/test_search_dual_provider.py
 - [ ] T031 [P] [US3] Add API tests for flight_options and lodging_options additive payloads in src/tests/api/test_search.py
 - [ ] T032 [P] [US3] Add frontend unit tests for flight-first rendering and lodging follow-through state in web/src/components/search/__tests__/ResultsDashboard.test.tsx
-- [ ] T033 [P] [US3] Add E2E scenario for destination compare → flight-first → lodging follow-through in web/tests/e2e/clarification.spec.ts
+- [ ] T033 [P] [US3] Add E2E scenario for destination compare → flight-first → lodging follow-through with @axe-core/playwright accessibility checks on all primary pages in web/tests/e2e/clarification.spec.ts
 
 ### Implementation for User Story 3
 
@@ -135,6 +135,9 @@
 - [ ] T042 Run backend targeted suite for this feature in src/tests/
 - [ ] T043 Run frontend unit and E2E scenarios for this feature in web/tests/e2e/ and web/src/components/search/__tests__/
 - [ ] T044 Update quickstart verification notes after implementation in specs/003-destination-guided-recommendations/quickstart.md
+- [ ] T049 [P] Add service + API tests asserting each recommendation bundle exposes ≥3 comparison dimensions (total_cost, flight_duration, trip_tone_match) in src/tests/services/test_search_dual_provider.py and src/tests/api/test_search.py
+- [ ] T050 [P] Verify preference recap is visible and editable before final recommendation generation (unit test for recap state in web/src/components/search/__tests__/ClarificationFlow.test.tsx)
+- [ ] T051 [P] Add E2E test asserting the full destination → preference → recommendation flow completes within ≤3 clarification turns (FR-016 criterion a) — assert turn counter ≤3 at recommendations-rendered state in web/tests/e2e/clarification.spec.ts
 
 ---
 
