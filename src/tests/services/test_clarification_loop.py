@@ -346,3 +346,31 @@ def test_budget_follow_up_accepts_qualitative_budget_answer():
     assert resolved.budget_range is not None
     assert resolved.budget_range.maximum is not None
     assert state.next_question is None
+
+
+def test_repeated_question_guard_advances_after_same_slot_repeats():
+    service = SearchService()
+    first_turn = SearchRequest(query="Trip ideas")
+    _, _, first_state = service._resolve_request(first_turn)
+    assert first_state.next_question is not None
+    assert first_state.next_question.slot == ClarificationSlot.DESTINATION
+
+    second_turn = first_turn.model_copy(update={"clarification_state": first_state})
+    _, _, second_state = service._resolve_request(second_turn)
+    assert second_state.next_question is not None
+    assert second_state.next_question.slot == ClarificationSlot.DESTINATION
+    assert second_state.loop_guard_counter == 1
+
+    third_turn = second_turn.model_copy(
+        update={
+            "clarification_state": second_state,
+            "clarification_answer": {
+                "slot": ClarificationSlot.DESTINATION,
+                "answer_text": "Lisbon",
+                "explicit_unknown": False,
+            },
+        }
+    )
+    _, _, third_state = service._resolve_request(third_turn)
+    assert third_state.next_question is not None
+    assert third_state.next_question.slot == ClarificationSlot.TIMELINE

@@ -91,6 +91,7 @@ export default function ResultsDashboard({
   const stayResults = response?.results.filter((result) => result.inventory_type === 'stay') ?? []
   const flightResults = response?.results.filter((result) => result.inventory_type === 'flight') ?? []
   const providerList = response?.provider_status ?? providerStatuses
+  const recommendationPackages = response?.recommendation_packages ?? []
   const hasSearched = Boolean(response || errorMessage)
   const flightWarnings = response?.warnings.filter((warning) => warning.toLowerCase().includes('flight')) ?? []
   const generalWarnings = response?.warnings.filter((warning) => !warning.toLowerCase().includes('flight')) ?? []
@@ -178,6 +179,49 @@ export default function ResultsDashboard({
 
       {!isLoading && response ? (
         <div className="grid gap-8">
+          {recommendationPackages.length ? (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold text-sumi">Top Suggestions</h2>
+                <span className="text-sm text-muted-foreground">{recommendationPackages.length} options</span>
+              </div>
+              <div className="grid gap-4">
+                {recommendationPackages.map((suggestion) => (
+                  <Card key={suggestion.bundle_id} className="border-primary/15 bg-primary/5">
+                    <CardHeader className="gap-2 pb-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <CardTitle className="text-lg text-sumi">{suggestion.destination}</CardTitle>
+                        <span className="rounded-full border border-primary/20 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                          {suggestion.fallback_level === 'high-fit'
+                            ? 'High fit'
+                            : suggestion.fallback_level === 'partial-fit'
+                              ? 'Partial fit'
+                              : 'Fallback option'}
+                        </span>
+                      </div>
+                      {suggestion.rationale_text && (
+                        <p className="text-sm text-muted-foreground">{suggestion.rationale_text}</p>
+                      )}
+                    </CardHeader>
+                    <CardContent className="space-y-3 pt-0">
+                      {suggestion.reason_tags?.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {suggestion.reason_tags.map((tag) => (
+                            <span
+                              key={`${suggestion.bundle_id}-${tag}`}
+                              className="rounded-full border border-border bg-background px-2.5 py-1 text-xs uppercase tracking-wide text-muted-foreground"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-xl font-semibold text-sumi">Stay Results</h2>

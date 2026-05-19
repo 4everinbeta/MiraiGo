@@ -42,3 +42,12 @@ Validate that post-intent suggestions are relevant, stable across turns, and tra
    - System still returns fallback suggestions.
    - Fallback entries are labeled as partial fit.
    - User can continue by editing recap constraints.
+
+## Validation notes
+
+1. Backend verification command:
+   - `./venv/bin/pytest -q src/tests/services/test_suggestion_quality.py src/tests/api/test_suggestion_quality.py src/tests/services/test_clarification_loop.py src/tests/api/test_search.py src/tests/api/test_search_filters.py`
+2. Frontend verification command:
+   - `cd web && npm test -- --runInBand --watch=false src/components/search/__tests__/ResultsDashboard.test.tsx src/components/search/__tests__/SuggestionQuality.test.tsx src/components/search/__tests__/ClarificationFlow.test.tsx`
+3. Manual check:
+   - Confirm "Top Suggestions" appears before stay/flight lists and each card shows fit label + reason tags.

@@ -127,4 +127,36 @@ describe('ClarificationFlow', () => {
       screen.getByRole('button', { name: 'Continue to Recommendations' })
     ).toBeInTheDocument()
   })
+
+  it('continues with preserved resolved constraints without resetting unrelated fields', () => {
+    const onSearch = jest.fn()
+    render(
+      <SearchForm
+        onSearch={onSearch}
+        clarificationState={buildClarificationState({
+          next_question: null,
+          all_critical_slots_resolved: true,
+        })}
+        preservedRequest={{
+          destination: 'Lisbon',
+          date_range: { start: '2026-06-01', end: '2026-06-08' },
+          trip_length_days: 7,
+          budget_range: { minimum: 1500, maximum: 2500, currency_code: 'USD' },
+        }}
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText(/travel prompt/i), {
+      target: { value: 'Lisbon trip in June' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /continue to recommendations/i }))
+
+    expect(onSearch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: 'Lisbon',
+        trip_length_days: 7,
+        budget_range: expect.objectContaining({ maximum: 2500 }),
+      })
+    )
+  })
 })

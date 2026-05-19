@@ -126,6 +126,7 @@ def test_post_search_returns_canonical_results():
     payload = response.json()
     assert payload["search_id"]
     assert len(payload["results"]) == 2
+    assert payload["recommendation_packages"]
     assert {item["inventory_type"] for item in payload["results"]} == {"stay", "flight"}
     assert any(status["provider"] == "testlive" and status["configured"] for status in payload["provider_status"])
     assert any(status["provider"] == "disabled" and not status["configured"] for status in payload["provider_status"])

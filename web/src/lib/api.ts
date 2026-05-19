@@ -68,7 +68,12 @@ export interface RecommendationPackage {
   destination: string
   score: number
   rationale: string[]
+  rationale_text?: string | null
+  reason_tags?: string[]
   estimated_total_cost?: number
+  hard_constraint_status?: Record<string, boolean>
+  fallback_level?: 'high-fit' | 'partial-fit' | 'fallback'
+  duplicate_signature?: string | null
   comparison?: RecommendationComparison
 }
 
@@ -128,6 +133,8 @@ export interface ClarificationState {
   next_question?: ClarificationQuestion | null
   recap: ClarificationRecap
   all_critical_slots_resolved: boolean
+  loop_guard_counter?: number
+  repeated_question_slot?: ClarificationSlot | null
 }
 
 export interface ClarificationAnswer {

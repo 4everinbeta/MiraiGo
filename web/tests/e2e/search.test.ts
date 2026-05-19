@@ -60,6 +60,18 @@ test.describe('Search Flow', () => {
           },
         ],
         warnings: [],
+        recommendation_packages: [
+          {
+            bundle_id: 'pkg-1',
+            destination: 'Barcelona',
+            score: 92,
+            rationale: ['Matches your key constraints with the strongest available inventory.'],
+            rationale_text: 'Matches your key constraints with the strongest available inventory.',
+            reason_tags: ['timeline match', 'budget fit', 'top provider score 90'],
+            hard_constraint_status: { destination: true, timeline: true, budget: true },
+            fallback_level: 'high-fit',
+          },
+        ],
         results: [
           {
             inventory_type: 'stay',
@@ -109,6 +121,8 @@ test.describe('Search Flow', () => {
     await page.goto('/');
     await page.getByLabel(/travel prompt/i).fill('Barcelona trip');
     await page.getByRole('button', { name: /submit travel intent/i }).click();
+    await expect(page.getByText(/top suggestions/i)).toBeVisible();
+    await expect(page.getByText(/high fit/i)).toBeVisible();
     await expect(page.getByText(/hotels in barcelona/i)).toBeVisible();
     await expect(page.getByText(/flight results/i)).toBeVisible();
     await checkAccessibility(page, 'Search Results Page');

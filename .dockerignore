@@ -5,6 +5,12 @@
 .coverage
 __pycache__
 venv
+.venv
+.env*
+*.log
+build
+dist
+node_modules
 web/.next
 web/node_modules
 web/playwright-report

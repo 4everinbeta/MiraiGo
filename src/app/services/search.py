@@ -23,6 +23,7 @@ from src.app.providers.base import ProviderError, TravelProvider
 from src.app.schemas.search import (
     AppliedFilters,
     ClarificationAnswer,
+    ClarificationBudgetRange,
     ClarificationRecapEdit,
     ClarificationSlot,
     ClarificationSlotState,
@@ -31,6 +32,7 @@ from src.app.schemas.search import (
     FlightSearchResult,
     InventoryType,
     ProviderStatus,
+    RecommendationPackage,
     SearchDateRange,
     SearchRequest,
     SearchResponse,
@@ -46,6 +48,7 @@ from src.app.services.clarification import (
     normalize_destination_candidates,
     reopen_related_slots,
     resolve_destination_selection_mode,
+    select_next_question,
     slot_state_from_metadata,
 )
 
@@ -143,6 +146,10 @@ class SearchService:
         )
 
         ranked_results = self._merge_results(results)
+        recommendation_packages = self._build_recommendation_packages(
+            request=resolved_request,
+            results=ranked_results,
+        )
         response = SearchResponse(
             search_id=search_id,
             query=resolved_request.query or "",
@@ -152,6 +159,7 @@ class SearchService:
             warnings=self._dedupe(warnings),
             results=ranked_results,
             clarification_state=clarification_state,
+            recommendation_packages=recommendation_packages,
         )
         self._cache_response(resolved_request, response)
         self._record_search(db, response, resolved_request, all_executions)
@@ -159,6 +167,7 @@ class SearchService:
 
     def _resolve_request(self, request: SearchRequest) -> tuple[SearchRequest, list[str], ClarificationState]:
         warnings: list[str] = []
+        request = self._merge_request_with_clarification_state(request)
         intent = extract_intent(request.query) if request.query else {}
         slot_states = self._build_slot_states(request, intent)
         history = list(request.clarification_state.history) if request.clarification_state else []
@@ -210,6 +219,11 @@ class SearchService:
             slot_states,
             history=history,
             weather_state=slot_states.get(ClarificationSlot.WEATHER),
+        )
+        clarification_state = self._apply_repeated_question_guard(
+            clarification_state=clarification_state,
+            slot_states=slot_states,
+            previous_state=request.clarification_state,
         )
         clarification_state = clarification_state.model_copy(
             update={
@@ -476,6 +490,87 @@ class SearchService:
         if updates:
             request = request.model_copy(update=updates)
         return request, slot_states, history, warnings
+
+    def _merge_request_with_clarification_state(self, request: SearchRequest) -> SearchRequest:
+        state = request.clarification_state
+        if not state:
+            return request
+
+        updates: dict = {}
+        if not request.destination and state.destination.value_label:
+            updates["destination"] = state.destination.value_label
+        if not request.trip_length_days and state.trip_length.value_label:
+            trip_length = self._parse_trip_length_answer(state.trip_length.value_label)
+            if trip_length:
+                updates["trip_length_days"] = trip_length
+        if not request.date_range and state.timeline.value_label:
+            parsed_range = self._parse_timeline_answer(state.timeline.value_label)
+            if parsed_range:
+                updates["date_range"] = parsed_range
+        if not request.budget_range and state.budget.value_label:
+            budget = self._parse_budget_answer(state.budget.value_label)
+            if budget:
+                updates["budget_range"] = budget
+
+        if not updates:
+            return request
+        return request.model_copy(update=updates)
+
+    def _apply_repeated_question_guard(
+        self,
+        *,
+        clarification_state: ClarificationState,
+        slot_states: dict[ClarificationSlot, ClarificationSlotState],
+        previous_state: ClarificationState | None,
+    ) -> ClarificationState:
+        next_question = clarification_state.next_question
+        if not next_question or not previous_state or not previous_state.next_question:
+            return clarification_state
+
+        if previous_state.next_question.slot != next_question.slot:
+            return clarification_state.model_copy(
+                update={
+                    "loop_guard_counter": 0,
+                    "repeated_question_slot": None,
+                }
+            )
+
+        repeated_count = (previous_state.loop_guard_counter or 0) + 1
+        repeated_slot = next_question.slot
+        updated_state = clarification_state.model_copy(
+            update={
+                "loop_guard_counter": repeated_count,
+                "repeated_question_slot": repeated_slot,
+            }
+        )
+        if repeated_count < 2:
+            return updated_state
+
+        # If we already asked this slot repeatedly and it now has value, advance.
+        state_for_slot = slot_states[repeated_slot]
+        if state_for_slot.value_label or state_for_slot.explicit_unknown:
+            candidate_states = {
+                slot: state
+                for slot, state in slot_states.items()
+                if slot != repeated_slot
+            }
+            fallback_question = select_next_question(
+                {
+                    **candidate_states,
+                    repeated_slot: state_for_slot.model_copy(
+                        update={
+                            "ambiguous": False,
+                            "confidence": 1.0,
+                        }
+                    ),
+                }
+            )
+            return updated_state.model_copy(
+                update={
+                    "next_question": fallback_question,
+                }
+            )
+        return updated_state
 
     def _apply_slot_answer(
         self,
@@ -1056,6 +1151,206 @@ class SearchService:
         ]
         merged_flights = self._deterministic_flight_interleave(flight_results)
         return [*merged_flights, *self._rank_results(other_results)]
+
+    def _build_recommendation_packages(
+        self,
+        *,
+        request: SearchRequest,
+        results: list[SearchResult],
+    ) -> list[RecommendationPackage]:
+        if not results and not request.destination:
+            return []
+
+        destination_order: list[str] = []
+        destination_map: dict[str, list[SearchResult]] = {}
+
+        def add_destination(label: str, result: SearchResult | None = None) -> None:
+            key = label.strip()
+            if not key:
+                return
+            if key not in destination_map:
+                destination_map[key] = []
+                destination_order.append(key)
+            if result is not None:
+                destination_map[key].append(result)
+
+        for candidate in request.destination_candidates:
+            add_destination(candidate)
+        if request.destination:
+            add_destination(request.destination)
+        for candidate in self._generate_llm_candidate_destinations(request):
+            add_destination(candidate)
+
+        for result in results:
+            if isinstance(result, FlightSearchResult):
+                add_destination(request.destination or result.destination_code, result)
+            else:
+                add_destination(result.location_label or request.destination or result.title, result)
+
+        packages: list[RecommendationPackage] = []
+        seen_signatures: set[str] = set()
+        for destination in destination_order:
+            destination_results = destination_map.get(destination, [])
+            fit_status = self._evaluate_hard_constraints(request, destination_results, destination)
+            if not self._apply_hard_blocker_gate(fit_status):
+                continue
+            fallback_level = self._compute_fallback_level(fit_status, bool(destination_results))
+            signature = self._generate_duplicate_signature(destination, request)
+            if signature in seen_signatures:
+                continue
+            seen_signatures.add(signature)
+            score = self._score_recommendation(fit_status, destination_results)
+            rationale, reason_tags = self._assemble_rationale(request, fit_status, destination_results)
+            estimated_cost = self._estimate_total_cost(destination_results, request)
+            packages.append(
+                RecommendationPackage(
+                    bundle_id=f"pkg-{len(packages) + 1}",
+                    destination=destination,
+                    score=score,
+                    rationale=rationale,
+                    rationale_text=rationale[0] if rationale else None,
+                    reason_tags=reason_tags,
+                    estimated_total_cost=estimated_cost,
+                    hard_constraint_status=fit_status,
+                    fallback_level=fallback_level,
+                    duplicate_signature=signature,
+                )
+            )
+
+        packages.sort(
+            key=lambda package: (
+                {"high-fit": 2, "partial-fit": 1, "fallback": 0}.get(
+                    package.fallback_level, 0
+                ),
+                package.score,
+            ),
+            reverse=True,
+        )
+        return packages[:3]
+
+    def _generate_llm_candidate_destinations(self, request: SearchRequest) -> list[str]:
+        if not settings.ENABLE_LLM_SUGGESTIONS or not request.query:
+            return []
+
+        lowered = request.query.lower()
+        pool: list[str] = []
+        if "beach" in lowered or "warm" in lowered:
+            pool.extend(["Lisbon", "Mallorca", "Cancun"])
+        if "culture" in lowered or "city" in lowered:
+            pool.extend(["Barcelona", "Lisbon", "Kyoto"])
+        if "adventure" in lowered:
+            pool.extend(["Reykjavik", "Queenstown"])
+
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for destination in pool:
+            key = destination.lower()
+            if key in seen:
+                continue
+            if not self._validate_llm_candidate(destination, request):
+                continue
+            seen.add(key)
+            deduped.append(destination)
+        return deduped[:3]
+
+    def _validate_llm_candidate(self, destination: str, request: SearchRequest) -> bool:
+        if not destination.strip():
+            return False
+        if request.destination and destination.lower() == request.destination.lower():
+            return True
+        # Hard constraints still apply to generated suggestions.
+        return bool(request.date_range and request.date_range.start and request.budget_range)
+
+    def _evaluate_hard_constraints(
+        self,
+        request: SearchRequest,
+        destination_results: list[SearchResult],
+        destination: str,
+    ) -> dict[str, bool]:
+        has_timeline = bool(request.date_range and request.date_range.start)
+        has_budget = bool(request.budget_range and request.budget_range.maximum is not None)
+        destination_known = bool(request.destination or destination)
+        budget_ok = True
+        if has_budget and destination_results:
+            max_budget = request.budget_range.maximum if request.budget_range else None
+            if max_budget is not None:
+                cheapest = min(result.total_price for result in destination_results)
+                budget_ok = cheapest <= max_budget
+        return {
+            "destination": destination_known,
+            "timeline": has_timeline,
+            "budget": has_budget and budget_ok,
+        }
+
+    def _apply_hard_blocker_gate(self, fit_status: dict[str, bool]) -> bool:
+        # Destination and timeline are strict blockers. Budget can fall back to partial fit.
+        return fit_status.get("destination", False) and fit_status.get("timeline", False)
+
+    def _compute_fallback_level(
+        self, fit_status: dict[str, bool], has_inventory: bool
+    ) -> str:
+        if all(fit_status.values()) and has_inventory:
+            return "high-fit"
+        if fit_status.get("budget", False):
+            return "partial-fit"
+        return "fallback"
+
+    def _score_recommendation(
+        self, fit_status: dict[str, bool], destination_results: list[SearchResult]
+    ) -> float:
+        base = sum(35 for met in fit_status.values() if met)
+        if destination_results:
+            top_score = max(result.score for result in destination_results)
+            base += min(30, top_score / 3)
+        return round(base, 2)
+
+    def _assemble_rationale(
+        self,
+        request: SearchRequest,
+        fit_status: dict[str, bool],
+        destination_results: list[SearchResult],
+    ) -> tuple[list[str], list[str]]:
+        tags: list[str] = []
+        if fit_status.get("timeline"):
+            tags.append("timeline match")
+        if fit_status.get("budget"):
+            tags.append("budget fit")
+        else:
+            tags.append("best partial fit")
+        if request.weather_preference and request.weather_preference.temperature:
+            tags.append(f"{request.weather_preference.temperature} weather")
+        if destination_results:
+            best = max(destination_results, key=lambda result: result.score)
+            tags.append(f"top provider score {round(best.score)}")
+        tags = tags[:3]
+        sentence = "Matches your key constraints with the strongest available inventory."
+        if not fit_status.get("budget"):
+            sentence = "Meets destination and timing constraints with the closest available budget match."
+        return [sentence], tags
+
+    def _estimate_total_cost(
+        self, destination_results: list[SearchResult], request: SearchRequest
+    ) -> float | None:
+        if destination_results:
+            return float(min(result.total_price for result in destination_results))
+        if request.budget_range and request.budget_range.maximum is not None:
+            return request.budget_range.maximum
+        return None
+
+    def _generate_duplicate_signature(
+        self, destination: str, request: SearchRequest
+    ) -> str:
+        budget = (
+            f"{request.budget_range.minimum}-{request.budget_range.maximum}"
+            if request.budget_range
+            else "no-budget"
+        )
+        date_key = (
+            f"{request.date_range.start.isoformat()}:{request.date_range.end.isoformat() if request.date_range.end else ''}"
+            if request.date_range
+            else "no-dates"
+        )
+        return f"{destination.lower()}|{date_key}|{budget}"
 
     def _deterministic_flight_interleave(
         self, results: list[FlightSearchResult]

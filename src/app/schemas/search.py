@@ -130,6 +130,8 @@ class ClarificationState(BaseModel):
     recap: ClarificationRecap = Field(default_factory=ClarificationRecap)
     all_critical_slots_resolved: bool = False
     history: list["ClarificationHistoryEntry"] = Field(default_factory=list)
+    loop_guard_counter: int = Field(default=0, ge=0)
+    repeated_question_slot: ClarificationSlot | None = None
 
 
 class ClarificationHistoryEntry(BaseModel):
@@ -173,7 +175,12 @@ class RecommendationPackage(BaseModel):
     destination: str = Field(min_length=1, max_length=120)
     score: float = 0.0
     rationale: list[str] = Field(default_factory=list)
+    rationale_text: str | None = Field(default=None, max_length=280)
+    reason_tags: list[str] = Field(default_factory=list)
     estimated_total_cost: float | None = Field(default=None, ge=0)
+    hard_constraint_status: dict[str, bool] = Field(default_factory=dict)
+    fallback_level: Literal["high-fit", "partial-fit", "fallback"] = "high-fit"
+    duplicate_signature: str | None = Field(default=None, max_length=240)
     comparison: RecommendationComparison | None = None
 
 
