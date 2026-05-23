@@ -80,6 +80,13 @@ export default function SearchForm({
   const canBegin = Boolean(query.trim())
   const canSubmitAnswer = Boolean(answerText.trim() && activeQuestion)
   const complete = Boolean(clarificationState?.all_critical_slots_resolved)
+  const pendingFlightRequirements = clarificationState?.flight_requirements_pending ?? []
+  const continueBlocked = complete && pendingFlightRequirements.length > 0
+  const continueBlockReason =
+    clarificationState?.continue_block_reason ??
+    (continueBlocked
+      ? `Continue needs ${pendingFlightRequirements.join(', ')} before flight recommendations can load.`
+      : null)
   const isDestinationQuestion = activeQuestion?.slot === 'destination'
 
   const activeChip = useMemo(
@@ -190,7 +197,7 @@ export default function SearchForm({
   }
 
   const continueToRecommendations = () => {
-    if (!complete || isSubmitting) return
+    if (!complete || continueBlocked || isSubmitting) return
     onSearch({
       ...buildBaseRequest(query),
       ...preservedRequest,
@@ -410,16 +417,23 @@ export default function SearchForm({
         )}
 
         {complete && (
-          <div className="flex justify-end border-t border-border/80 pt-4">
-            <Button
-              className="h-11 min-w-56 bg-primary text-white hover:bg-indigo-jp"
-              disabled={isSubmitting}
-              onClick={continueToRecommendations}
-              type="button"
-            >
-              Continue to Recommendations
-            </Button>
-          </div>
+          <section className="space-y-3 border-t border-border/80 pt-4">
+            {continueBlocked && continueBlockReason && (
+              <p className="text-sm font-medium text-destructive" role="status">
+                {continueBlockReason}
+              </p>
+            )}
+            <div className="flex justify-end">
+              <Button
+                className="h-11 min-w-56 bg-primary text-white hover:bg-indigo-jp"
+                disabled={isSubmitting || continueBlocked}
+                onClick={continueToRecommendations}
+                type="button"
+              >
+                Continue to Recommendations
+              </Button>
+            </div>
+          </section>
         )}
 
         {clarificationState && !activeQuestion && !complete && (

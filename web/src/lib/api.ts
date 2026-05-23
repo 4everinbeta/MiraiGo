@@ -133,6 +133,8 @@ export interface ClarificationState {
   next_question?: ClarificationQuestion | null
   recap: ClarificationRecap
   all_critical_slots_resolved: boolean
+  flight_requirements_pending: string[]
+  continue_block_reason?: string | null
   loop_guard_counter?: number
   repeated_question_slot?: ClarificationSlot | null
 }
