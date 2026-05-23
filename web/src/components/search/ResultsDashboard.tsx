@@ -47,6 +47,12 @@ function ResultCard({ result }: { result: SearchResult }) {
   const flightFreshnessAt =
     result.inventory_type === 'flight' ? result.airfare_freshness?.freshness_at ?? null : null
   const missingFlightFields = result.inventory_type === 'flight' ? result.missing_fields ?? [] : []
+  const usesLegacyFallback =
+    result.inventory_type === 'flight' &&
+    (result.price_minor == null ||
+      result.currency_code == null ||
+      result.duration_minutes == null ||
+      result.stops_count == null)
 
   return (
     <Card className="border-border/80 bg-white/90 shadow-sm">
@@ -90,6 +96,11 @@ function ResultCard({ result }: { result: SearchResult }) {
             <span className="rounded-full border border-primary/15 bg-primary/5 px-2.5 py-1">
               Conversion: {result.conversion_status ?? 'unavailable'}
             </span>
+            {usesLegacyFallback ? (
+              <span className="rounded-full border border-primary/15 bg-primary/5 px-2.5 py-1">
+                Fallback: using legacy airfare fields
+              </span>
+            ) : null}
             {missingFlightFields.length > 0 ? (
               <span className="rounded-full border border-border bg-background px-2.5 py-1">
                 Missing fields: {missingFlightFields.join(', ')}
