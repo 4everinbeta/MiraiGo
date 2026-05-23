@@ -474,3 +474,41 @@ def test_post_search_returns_deterministic_flight_requirement_guidance_when_cont
         "Flight recommendations are paused until you provide: origin."
         in payload["warnings"]
     )
+
+
+def test_post_search_constraint_updates_origin_clears_continue_block_reason():
+    search_service.providers = [DisabledProvider()]
+
+    blocked_payload = {
+        "query": "Lisbon trip in June for 7 days under $2,500",
+        "destination": "Lisbon",
+        "date_range": {"start": "2026-06-01", "end": "2026-06-08"},
+        "trip_length_days": 7,
+        "budget_range": {"minimum": 1500, "maximum": 2500, "currency_code": "USD"},
+        "inventory": ["flight"],
+        "travelers": {"adults": 1, "children": 0, "infants": 0},
+        "stay_filters": {"amenities": []},
+        "flight_filters": {"nonstop": False},
+        "currency_code": "USD",
+        "limit_per_provider": 5,
+    }
+
+    blocked_response = client.post("/api/v1/search", json=blocked_payload)
+    assert blocked_response.status_code == 200
+    blocked_state = blocked_response.json()["clarification_state"]
+    assert blocked_state["flight_requirements_pending"] == ["origin"]
+    assert blocked_state["continue_block_reason"] is not None
+
+    follow_up_response = client.post(
+        "/api/v1/search",
+        json={
+            **blocked_payload,
+            "clarification_state": blocked_state,
+            "constraint_updates": {"origin": "Denver"},
+        },
+    )
+
+    assert follow_up_response.status_code == 200
+    follow_up_state = follow_up_response.json()["clarification_state"]
+    assert follow_up_state["flight_requirements_pending"] == []
+    assert follow_up_state["continue_block_reason"] is None

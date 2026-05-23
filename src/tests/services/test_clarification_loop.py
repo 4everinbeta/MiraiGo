@@ -417,3 +417,34 @@ def test_search_gate_uses_shared_flight_prerequisite_contract():
     assert FLIGHT_PREREQUISITE_FIELDS == ("origin", "destination", "date_range")
     assert get_missing_flight_prerequisites(resolved) == clarification_state.flight_requirements_pending
     assert can_show_flights is False
+
+
+def test_constraint_updates_origin_unblocks_flight_prerequisites():
+    service = SearchService()
+    blocked_request = SearchRequest(
+        query="Lisbon trip in June for 7 days under $2,500",
+        destination="Lisbon",
+        date_range={"start": "2026-06-01", "end": "2026-06-08"},
+        trip_length_days=7,
+        budget_range=ClarificationBudgetRange(
+            minimum=1500,
+            maximum=2500,
+            currency_code="USD",
+        ),
+        inventory=["flight"],
+    )
+
+    _, _, blocked_state = service._resolve_request(blocked_request)
+    assert blocked_state.flight_requirements_pending == ["origin"]
+
+    follow_up_request = blocked_request.model_copy(
+        update={
+            "clarification_state": blocked_state,
+            "constraint_updates": {"origin": "Denver"},
+        }
+    )
+    resolved_follow_up, _, follow_up_state = service._resolve_request(follow_up_request)
+
+    assert resolved_follow_up.origin == "Denver"
+    assert follow_up_state.flight_requirements_pending == []
+    assert follow_up_state.continue_block_reason is None
