@@ -400,4 +400,44 @@ describe('ResultsDashboard', () => {
     const offerB = screen.getByText('Offer B')
     expect(offerA.compareDocumentPosition(offerB) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
+
+  it('renders deterministic fallback text when normalized fields are null-present', () => {
+    render(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={providerStatuses}
+        response={{
+          search_id: 'search-7',
+          query: 'Fallback normalized fields',
+          requested_inventory: ['flight'],
+          applied_filters: {
+            destination: 'Barcelona',
+            origin: 'DEN',
+            date_range: { start: '2026-05-03', end: '2026-05-08' },
+            travelers: { adults: 1, children: 0, infants: 0 },
+            stay_filters: { amenities: [] },
+            flight_filters: { nonstop: false },
+          },
+          provider_status: providerStatuses,
+          warnings: [],
+          results: [
+            {
+              ...normalizedContractFixture,
+              title: 'Fallback flight',
+              price_minor: null,
+              currency_code: null,
+              duration_minutes: null,
+              stops_count: null,
+              missing_fields: ['price_minor', 'currency_code', 'duration_minutes', 'stops_count'],
+            },
+          ],
+        }}
+      />
+    )
+
+    expect(screen.getByText(/missing fields: price_minor, currency_code, duration_minutes, stops_count/i)).toBeInTheDocument()
+    expect(screen.getByText(/den to bcn • 1 stop • pt10h45m/i)).toBeInTheDocument()
+    expect(screen.getByText(/fallback: using legacy airfare fields/i)).toBeInTheDocument()
+  })
 })
