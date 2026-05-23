@@ -36,6 +36,12 @@ def _flight_result(provider: str, label: str, score: float, price: float) -> Fli
     )
 
 
+@pytest.fixture(autouse=True)
+def disable_search_cache(monkeypatch):
+    monkeypatch.setattr("src.app.services.search.redis_client.get", lambda *args, **kwargs: None)
+    monkeypatch.setattr("src.app.services.search.redis_client.setex", lambda *args, **kwargs: True)
+
+
 class FakeFlightProvider(TravelProvider):
     provider_name = "fake"
     display_name = "Fake"
@@ -174,6 +180,68 @@ async def test_dual_provider_interleave_is_deterministic():
     second_order = [f"{item.provider}:{item.score}" for item in second.results]
     assert first_order == ["amadeus:95.0", "duffel:90.0", "amadeus:70.0", "duffel:65.0"]
     assert second_order == first_order
+    first_ids = [item.normalized_offer_id for item in first.results]
+    second_ids = [item.normalized_offer_id for item in second.results]
+    assert all(offer_id is not None for offer_id in first_ids)
+    assert first_ids == second_ids
+
+
+@pytest.mark.asyncio
+async def test_flight_normalization_keeps_null_contract_for_missing_fields():
+    service = SearchService()
+    service.providers = [
+        FakeFlightProvider(
+            provider_name="amadeus",
+            display_name="Amadeus",
+            results=[
+                _flight_result(
+                    "amadeus",
+                    "Amadeus",
+                    score=95.0,
+                    price=410.0,
+                ).model_copy(
+                    update={
+                        "departure_at": "",
+                        "arrival_at": "",
+                        "duration": None,
+                    }
+                )
+            ],
+        )
+    ]
+    request = _resolved_flight_request().model_copy(update={"origin": "DEN"})
+
+    response = await service.search(request)
+
+    offer = response.results[0]
+    assert offer.duration_minutes is None
+    assert offer.stops_count == 0
+    assert "departure_at" in offer.missing_fields
+    assert "arrival_at" in offer.missing_fields
+    assert "duration_minutes" in offer.missing_fields
+
+
+@pytest.mark.asyncio
+async def test_flight_normalization_keeps_legacy_fields_for_compatibility():
+    service = SearchService()
+    service.providers = [
+        FakeFlightProvider(
+            provider_name="amadeus",
+            display_name="Amadeus",
+            results=[_flight_result("amadeus", "Amadeus", score=90.0, price=410.0)],
+        )
+    ]
+    request = _resolved_flight_request().model_copy(update={"origin": "DEN"})
+
+    response = await service.search(request)
+
+    offer = response.results[0]
+    assert offer.total_price == 410.0
+    assert offer.currency == "USD"
+    assert offer.stops == 0
+    assert offer.duration == "PT10H"
+    assert offer.price_minor == 41000
+    assert offer.currency_code == "USD"
 
 
 @pytest.mark.asyncio
