@@ -440,3 +440,37 @@ def test_search_handles_follow_up_clarification_turn():
     # INTENT-03 / INTENT-04: follow-up turn progression remains focused and deterministic.
     assert follow_up_payload["clarification_state"]["next_question"]["slot"] == "budget"
     assert follow_up_payload["clarification_state"]["next_question"]["slot"] != "destination"
+
+
+def test_post_search_returns_deterministic_flight_requirement_guidance_when_continue_is_blocked():
+    search_service.providers = [DisabledProvider()]
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Lisbon trip in June for 7 days under $2,500",
+            "destination": "Lisbon",
+            "date_range": {"start": "2026-06-01", "end": "2026-06-08"},
+            "trip_length_days": 7,
+            "budget_range": {"minimum": 1500, "maximum": 2500, "currency_code": "USD"},
+            "inventory": ["flight"],
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["clarification_state"] is not None
+    assert payload["clarification_state"]["flight_requirements_pending"] == ["origin"]
+    assert (
+        payload["clarification_state"]["continue_block_reason"]
+        == "Continue needs origin before flight recommendations can load."
+    )
+    assert (
+        "Flight recommendations are paused until you provide: origin."
+        in payload["warnings"]
+    )

@@ -7,8 +7,10 @@ from src.app.schemas.search import (
 )
 from src.app.services.clarification import (
     CRITICAL_SLOT_ORDER,
+    FLIGHT_PREREQUISITE_FIELDS,
     GLOBAL_CONFIDENCE_THRESHOLD,
     build_clarification_state,
+    get_missing_flight_prerequisites,
     select_next_question,
 )
 from src.app.services.search import SearchService
@@ -374,3 +376,44 @@ def test_repeated_question_guard_advances_after_same_slot_repeats():
     _, _, third_state = service._resolve_request(third_turn)
     assert third_state.next_question is not None
     assert third_state.next_question.slot == ClarificationSlot.TIMELINE
+
+
+def test_clarification_state_surfaces_unresolved_flight_requirements_when_slots_are_resolved():
+    slot_states = {
+        ClarificationSlot.DESTINATION: _slot_state(ClarificationSlot.DESTINATION, "Lisbon"),
+        ClarificationSlot.TIMELINE: _slot_state(ClarificationSlot.TIMELINE, "June"),
+        ClarificationSlot.TRIP_LENGTH: _slot_state(ClarificationSlot.TRIP_LENGTH, "7 days"),
+        ClarificationSlot.BUDGET: _slot_state(ClarificationSlot.BUDGET, "$2000"),
+    }
+
+    state = build_clarification_state(
+        slot_states,
+        flight_requirements_pending=["origin", "date_range"],
+        continue_block_reason="Continue needs origin and date_range before flight recommendations can load.",
+    )
+
+    assert state.all_critical_slots_resolved is True
+    assert state.flight_requirements_pending == ["origin", "date_range"]
+    assert state.continue_block_reason is not None
+
+
+def test_search_gate_uses_shared_flight_prerequisite_contract():
+    service = SearchService()
+    request = SearchRequest(
+        query="Lisbon in June for 7 days under $2,500",
+        destination="Lisbon",
+        date_range={"start": "2026-06-01", "end": "2026-06-08"},
+        trip_length_days=7,
+        budget_range=ClarificationBudgetRange(
+            minimum=1500,
+            maximum=2500,
+            currency_code="USD",
+        ),
+    )
+
+    resolved, _, clarification_state = service._resolve_request(request)
+    can_show_flights, _ = service._can_show_flights(resolved)
+
+    assert FLIGHT_PREREQUISITE_FIELDS == ("origin", "destination", "date_range")
+    assert get_missing_flight_prerequisites(resolved) == clarification_state.flight_requirements_pending
+    assert can_show_flights is False
