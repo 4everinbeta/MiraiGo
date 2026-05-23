@@ -70,6 +70,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 10. Dual-Provider Realtime Airfare Retrieval | 3/3 | Complete | 2026-04-26 |
-| 11. Airfare Normalization, Provenance, and Contracts | 5/5 | Complete | 2026-05-23 |
+| 11. Airfare Normalization, Provenance, and Contracts | 5/5 | Complete    | 2026-05-23 |
 | 12. Degraded-Mode Reliability and Clarification Continuity | 0/0 | Not started | - |
 | 13. Ranking with Live Airfare Context | 0/0 | Not started | - |
