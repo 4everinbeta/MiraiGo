@@ -39,6 +39,7 @@ from src.app.schemas.search import (
     SearchResult,
     StaySearchResult,
 )
+from src.app.services.airfare_normalization import normalize_airfare_offer
 from src.app.services.clarification import (
     CRITICAL_SLOT_ORDER,
     GLOBAL_CONFIDENCE_THRESHOLD,
@@ -146,6 +147,10 @@ class SearchService:
         )
 
         ranked_results = self._merge_results(results)
+        ranked_results = self._normalize_flight_results(
+            ranked_results,
+            request=resolved_request,
+        )
         recommendation_packages = self._build_recommendation_packages(
             request=resolved_request,
             results=ranked_results,
@@ -1151,6 +1156,36 @@ class SearchService:
         ]
         merged_flights = self._deterministic_flight_interleave(flight_results)
         return [*merged_flights, *self._rank_results(other_results)]
+
+    def _normalize_flight_results(
+        self, results: list[SearchResult], request: SearchRequest
+    ) -> list[SearchResult]:
+        fetched_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        normalized_results: list[SearchResult] = []
+        for result in results:
+            if not isinstance(result, FlightSearchResult):
+                normalized_results.append(result)
+                continue
+
+            normalization = normalize_airfare_offer(
+                provider=result.provider,
+                provider_offer_id=result.provider_offer_id,
+                origin_code=result.origin_code,
+                destination_code=result.destination_code,
+                departure_at=result.departure_at,
+                arrival_at=result.arrival_at,
+                total_price=result.total_price,
+                provider_currency=result.currency,
+                requested_currency=request.currency_code,
+                duration=result.duration,
+                stops=result.stops,
+                fetched_at=fetched_at,
+                source_payload_ref=result.provider_offer_id,
+            )
+            normalized_payload = result.model_dump(mode="json")
+            normalized_payload.update(normalization)
+            normalized_results.append(FlightSearchResult.model_validate(normalized_payload))
+        return normalized_results
 
     def _build_recommendation_packages(
         self,
