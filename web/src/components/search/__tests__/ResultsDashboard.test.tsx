@@ -304,4 +304,100 @@ describe('ResultsDashboard', () => {
     const secondFlight = screen.getByText('Second API flight')
     expect(firstFlight.compareDocumentPosition(secondFlight) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
+
+  it('renders normalized airfare comparison and provenance metadata', () => {
+    render(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={providerStatuses}
+        response={{
+          search_id: 'search-5',
+          query: 'Normalized comparison',
+          requested_inventory: ['flight'],
+          applied_filters: {
+            destination: 'Barcelona',
+            origin: 'DEN',
+            date_range: { start: '2026-05-03', end: '2026-05-08' },
+            travelers: { adults: 1, children: 0, infants: 0 },
+            stay_filters: { amenities: [] },
+            flight_filters: { nonstop: false },
+          },
+          provider_status: providerStatuses,
+          warnings: [],
+          results: [
+            {
+              ...normalizedContractFixture,
+              title: 'Normalized flight',
+              total_price: 999,
+              stops: 3,
+              duration: 'PT1H',
+              price_minor: 64000,
+              currency_code: 'USD',
+              stops_count: 1,
+              duration_minutes: 645,
+            },
+          ],
+        }}
+      />
+    )
+
+    expect(screen.getByText('$640')).toBeInTheDocument()
+    expect(screen.getByText(/den to bcn • 1 stop • 645 min/i)).toBeInTheDocument()
+    expect(screen.getByText(/source: duffel/i)).toBeInTheDocument()
+    expect(screen.getByText(/freshness: provider_quote/i)).toBeInTheDocument()
+    expect(screen.getByText(/conversion: native/i)).toBeInTheDocument()
+  })
+
+  it('keeps normalized_offer_id-driven ordering stable across rerenders', () => {
+    const baseResponse = {
+      search_id: 'search-6',
+      query: 'Stable ordering',
+      requested_inventory: ['flight'] as const,
+      applied_filters: {
+        destination: 'Barcelona',
+        origin: 'DEN',
+        date_range: { start: '2026-05-03', end: '2026-05-08' },
+        travelers: { adults: 1, children: 0, infants: 0 },
+        stay_filters: { amenities: [] },
+        flight_filters: { nonstop: false },
+      },
+      provider_status: providerStatuses,
+      warnings: [],
+    }
+
+    const { rerender } = render(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={providerStatuses}
+        response={{
+          ...baseResponse,
+          results: [
+            { ...normalizedContractFixture, normalized_offer_id: 'offer-002', title: 'Offer B' },
+            { ...normalizedContractFixture, normalized_offer_id: 'offer-001', title: 'Offer A' },
+          ],
+        }}
+      />
+    )
+
+    rerender(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={providerStatuses}
+        response={{
+          ...baseResponse,
+          results: [
+            { ...normalizedContractFixture, normalized_offer_id: 'offer-001', title: 'Offer A' },
+            { ...normalizedContractFixture, normalized_offer_id: 'offer-002', title: 'Offer B' },
+          ],
+        }}
+      />
+    )
+
+    const offerA = screen.getByText('Offer A')
+    const offerB = screen.getByText('Offer B')
+    expect(offerA.compareDocumentPosition(offerB) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 })
