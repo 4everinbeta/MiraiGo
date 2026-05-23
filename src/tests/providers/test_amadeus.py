@@ -23,6 +23,7 @@ async def test_amadeus_provider_builds_flight_results():
             {
                 "data": [
                     {
+                        "id": "ama-offer-123",
                         "price": {"total": "640.00", "currency": "USD"},
                         "itineraries": [
                             {
@@ -66,6 +67,9 @@ async def test_amadeus_provider_builds_flight_results():
     assert result.provider == "amadeus"
     assert result.provider_label == "Amadeus"
     assert result.total_price == 640.0
+    assert result.provider_offer_id == "ama-offer-123"
+    assert result.duration == "PT10H45M"
+    assert result.stops == 0
 
 
 @pytest.mark.asyncio

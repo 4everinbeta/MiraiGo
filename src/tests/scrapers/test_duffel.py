@@ -20,6 +20,7 @@ async def test_duffel_provider_builds_flight_results(monkeypatch):
             "data": {
                 "offers": [
                     {
+                        "id": "duffel-offer-456",
                         "owner": {"name": "Duffel Airways"},
                         "total_amount": "640.00",
                         "total_currency": "USD",
@@ -65,6 +66,9 @@ async def test_duffel_provider_builds_flight_results(monkeypatch):
     assert result.title == "DEN to BCN roundtrip"
     assert result.total_price == 640.0
     assert result.redirect_url is None
+    assert result.provider_offer_id == "duffel-offer-456"
+    assert result.duration == "PT10H45M"
+    assert result.stops == 0
 
 
 @pytest.mark.asyncio
