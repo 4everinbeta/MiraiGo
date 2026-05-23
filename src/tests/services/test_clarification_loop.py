@@ -448,3 +448,82 @@ def test_constraint_updates_origin_unblocks_flight_prerequisites():
     assert resolved_follow_up.origin == "Denver"
     assert follow_up_state.flight_requirements_pending == []
     assert follow_up_state.continue_block_reason is None
+
+
+def test_constraint_updates_date_range_unblocks_flight_prerequisites():
+    service = SearchService()
+    blocked_request = SearchRequest(
+        query="Lisbon trip for 7 days under $2,500",
+        destination="Lisbon",
+        origin="Denver",
+        trip_length_days=7,
+        budget_range=ClarificationBudgetRange(
+            minimum=1500,
+            maximum=2500,
+            currency_code="USD",
+        ),
+        inventory=["flight"],
+    )
+
+    _, _, blocked_state = service._resolve_request(blocked_request)
+    assert blocked_state.flight_requirements_pending == ["date_range"]
+
+    follow_up_request = blocked_request.model_copy(
+        update={
+            "clarification_state": blocked_state,
+            "constraint_updates": {
+                "date_range": {"start": "2026-06-01", "end": "2026-06-08"},
+            },
+        }
+    )
+    resolved_follow_up, _, follow_up_state = service._resolve_request(follow_up_request)
+
+    assert resolved_follow_up.date_range is not None
+    assert follow_up_state.flight_requirements_pending == []
+    assert follow_up_state.continue_block_reason is None
+
+
+def test_constraint_updates_origin_and_date_range_share_same_unblock_path():
+    service = SearchService()
+    blocked_request = SearchRequest(
+        query="Lisbon trip for 7 days under $2,500",
+        destination="Lisbon",
+        trip_length_days=7,
+        budget_range=ClarificationBudgetRange(
+            minimum=1500,
+            maximum=2500,
+            currency_code="USD",
+        ),
+        inventory=["flight"],
+    )
+
+    _, _, blocked_state = service._resolve_request(blocked_request)
+    assert blocked_state.flight_requirements_pending == ["origin", "date_range"]
+
+    origin_follow_up = blocked_request.model_copy(
+        update={
+            "clarification_state": blocked_state,
+            "constraint_updates": {"origin": "Denver"},
+        }
+    )
+    resolved_origin_follow_up, _, origin_follow_up_state = service._resolve_request(origin_follow_up)
+    assert resolved_origin_follow_up.origin == "Denver"
+    assert origin_follow_up_state.flight_requirements_pending == ["date_range"]
+    assert origin_follow_up_state.continue_block_reason == (
+        "Continue needs date_range before flight recommendations can load."
+    )
+
+    date_follow_up = blocked_request.model_copy(
+        update={
+            "clarification_state": blocked_state,
+            "constraint_updates": {
+                "date_range": {"start": "2026-06-01", "end": "2026-06-08"},
+            },
+        }
+    )
+    resolved_date_follow_up, _, date_follow_up_state = service._resolve_request(date_follow_up)
+    assert resolved_date_follow_up.date_range is not None
+    assert date_follow_up_state.flight_requirements_pending == ["origin"]
+    assert date_follow_up_state.continue_block_reason == (
+        "Continue needs origin before flight recommendations can load."
+    )
