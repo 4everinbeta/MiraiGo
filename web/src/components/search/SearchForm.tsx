@@ -73,6 +73,7 @@ export default function SearchForm({
   const [editingSlot, setEditingSlot] = useState<ClarificationSlot | null>(null)
   const [editedValue, setEditedValue] = useState('')
   const [selectedSuggestionIds, setSelectedSuggestionIds] = useState<string[]>([])
+  const [originRemediationValue, setOriginRemediationValue] = useState('')
 
   const activeQuestion = clarificationState?.next_question ?? null
   const destinationSuggestions = clarificationState?.destination_suggestions ?? []
@@ -87,6 +88,7 @@ export default function SearchForm({
     (continueBlocked
       ? `Continue needs ${pendingFlightRequirements.join(', ')} before flight recommendations can load.`
       : null)
+  const originRequiredForContinue = continueBlocked && pendingFlightRequirements.includes('origin')
   const isDestinationQuestion = activeQuestion?.slot === 'destination'
 
   const activeChip = useMemo(
@@ -203,6 +205,22 @@ export default function SearchForm({
       ...preservedRequest,
       query: query.trim() || preservedRequest?.query || undefined,
     })
+  }
+
+  const submitOriginRemediation = (event: React.FormEvent) => {
+    event.preventDefault()
+    const origin = originRemediationValue.trim()
+    if (!originRequiredForContinue || !origin || isSubmitting) return
+
+    onSearch({
+      ...buildBaseRequest(query),
+      ...preservedRequest,
+      query: query.trim() || preservedRequest?.query || undefined,
+      constraint_updates: {
+        origin,
+      },
+    })
+    setOriginRemediationValue('')
   }
 
   return (
@@ -422,6 +440,24 @@ export default function SearchForm({
               <p className="text-sm font-medium text-destructive" role="status">
                 {continueBlockReason}
               </p>
+            )}
+            {originRequiredForContinue && (
+              <form className="space-y-3 rounded-xl border border-primary/20 bg-white p-4" onSubmit={submitOriginRemediation}>
+                <label className="space-y-2 text-sm font-normal leading-[1.4] text-sumi">
+                  Origin
+                  <Input
+                    aria-label="Origin"
+                    onChange={(event) => setOriginRemediationValue(event.target.value)}
+                    placeholder="Enter departure city or airport"
+                    value={originRemediationValue}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Button disabled={!originRemediationValue.trim() || isSubmitting} type="submit">
+                    Submit origin
+                  </Button>
+                </div>
+              </form>
             )}
             <div className="flex justify-end">
               <Button

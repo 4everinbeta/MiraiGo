@@ -152,6 +152,7 @@ export interface ClarificationRecapEdit {
 }
 
 export interface ConstraintUpdates {
+  origin?: string
   destination?: string
   destination_candidates?: string[]
   destination_selection_mode?: DestinationSelectionMode
