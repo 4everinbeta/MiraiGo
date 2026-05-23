@@ -19,9 +19,34 @@ function formatMoney(amount: number, currency: string) {
 }
 
 function ResultCard({ result }: { result: SearchResult }) {
+  const normalizedPrice =
+    result.inventory_type === 'flight' &&
+    result.price_minor != null &&
+    result.currency_code != null
+      ? formatMoney(result.price_minor / 100, result.currency_code)
+      : null
   const priceSummary = result.price_known
-    ? formatMoney(result.total_price, result.currency)
+    ? normalizedPrice || formatMoney(result.total_price, result.currency)
     : result.price_label || 'Check partner site for pricing'
+  const flightStops =
+    result.inventory_type === 'flight' ? (result.stops_count ?? result.stops) : null
+  const flightDuration =
+    result.inventory_type === 'flight'
+      ? result.duration_minutes != null
+        ? `${result.duration_minutes} min`
+        : result.duration || 'Duration unavailable'
+      : null
+  const flightSourceProvider =
+    result.inventory_type === 'flight'
+      ? result.airfare_provenance?.source_provider || result.provider
+      : null
+  const flightFreshnessSource =
+    result.inventory_type === 'flight'
+      ? result.airfare_freshness?.freshness_source || 'unavailable'
+      : null
+  const flightFreshnessAt =
+    result.inventory_type === 'flight' ? result.airfare_freshness?.freshness_at ?? null : null
+  const missingFlightFields = result.inventory_type === 'flight' ? result.missing_fields ?? [] : []
 
   return (
     <Card className="border-border/80 bg-white/90 shadow-sm">
@@ -47,10 +72,31 @@ function ResultCard({ result }: { result: SearchResult }) {
           )}
           {result.inventory_type === 'flight' && (
             <span>
-              {result.origin_code} to {result.destination_code} • {result.stops === 0 ? 'Nonstop' : `${result.stops} stop${result.stops > 1 ? 's' : ''}`}
+              {result.origin_code} to {result.destination_code} •{' '}
+              {flightStops === 0 ? 'Nonstop' : `${flightStops} stop${(flightStops ?? 0) > 1 ? 's' : ''}`} •{' '}
+              {flightDuration}
             </span>
           )}
         </div>
+        {result.inventory_type === 'flight' && (
+          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <span className="rounded-full border border-primary/15 bg-primary/5 px-2.5 py-1">
+              Source: {flightSourceProvider}
+            </span>
+            <span className="rounded-full border border-primary/15 bg-primary/5 px-2.5 py-1">
+              Freshness: {flightFreshnessSource}
+              {flightFreshnessAt ? ` (${flightFreshnessAt})` : ''}
+            </span>
+            <span className="rounded-full border border-primary/15 bg-primary/5 px-2.5 py-1">
+              Conversion: {result.conversion_status ?? 'unavailable'}
+            </span>
+            {missingFlightFields.length > 0 ? (
+              <span className="rounded-full border border-border bg-background px-2.5 py-1">
+                Missing fields: {missingFlightFields.join(', ')}
+              </span>
+            ) : null}
+          </div>
+        )}
         {result.inventory_type === 'stay' && result.amenities.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {result.amenities.map((amenity) => (
@@ -89,7 +135,14 @@ export default function ResultsDashboard({
   errorMessage,
 }: ResultsDashboardProps) {
   const stayResults = response?.results.filter((result) => result.inventory_type === 'stay') ?? []
-  const flightResults = response?.results.filter((result) => result.inventory_type === 'flight') ?? []
+  const flightResults =
+    response?.results
+      .filter((result) => result.inventory_type === 'flight')
+      .sort((a, b) => {
+        const aKey = a.normalized_offer_id ?? `${a.provider}-${a.title}-${a.departure_at}`
+        const bKey = b.normalized_offer_id ?? `${b.provider}-${b.title}-${b.departure_at}`
+        return aKey.localeCompare(bKey)
+      }) ?? []
   const providerList = response?.provider_status ?? providerStatuses
   const recommendationPackages = response?.recommendation_packages ?? []
   const hasSearched = Boolean(response || errorMessage)
@@ -246,7 +299,10 @@ export default function ResultsDashboard({
             {flightResults.length ? (
               <div className="grid gap-4">
                 {flightResults.map((result) => (
-                  <ResultCard key={`${result.provider}-${result.title}-${result.departure_at}`} result={result} />
+                  <ResultCard
+                    key={result.normalized_offer_id ?? `${result.provider}-${result.title}-${result.departure_at}`}
+                    result={result}
+                  />
                 ))}
               </div>
             ) : (
