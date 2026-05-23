@@ -63,6 +63,8 @@ function buildClarificationState(
       continue_label: 'Continue to Recommendations',
     },
     all_critical_slots_resolved: false,
+    flight_requirements_pending: [],
+    continue_block_reason: null,
     ...overrides,
   }
 }
@@ -158,5 +160,27 @@ describe('ClarificationFlow', () => {
         budget_range: expect.objectContaining({ maximum: 2500 }),
       })
     )
+  })
+
+  it('blocks continue and shows deterministic remediation when flight prerequisites remain unresolved', () => {
+    const onSearch = jest.fn()
+    render(
+      <SearchForm
+        onSearch={onSearch}
+        clarificationState={buildClarificationState({
+          next_question: null,
+          all_critical_slots_resolved: true,
+          flight_requirements_pending: ['origin', 'date_range'],
+          continue_block_reason: 'Continue needs origin and date_range before flight recommendations can load.',
+        })}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /continue to recommendations/i }))
+
+    expect(onSearch).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Continue needs origin and date_range before flight recommendations can load.')
+    ).toBeInTheDocument()
   })
 })
