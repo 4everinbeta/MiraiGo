@@ -197,6 +197,22 @@ export interface ProviderStatus {
   reason?: string | null
 }
 
+export type ConversionStatus = 'native' | 'converted' | 'unavailable'
+export type FreshnessSource = 'provider_quote' | 'provider_fetch' | 'cache_write'
+
+export interface AirfareProvenance {
+  source_provider: string | null
+  provider_offer_id: string | null
+  source_quote_at: string | null
+  source_payload_ref: string | null
+}
+
+export interface AirfareFreshness {
+  freshness_source: FreshnessSource | null
+  freshness_at: string | null
+  fetched_at: string | null
+}
+
 interface BaseResult {
   inventory_type: InventoryType
   provider: string
@@ -230,7 +246,17 @@ export interface FlightSearchResult extends BaseResult {
   arrival_at: string
   carrier_codes: string[]
   stops: number
-  duration?: string | null
+  duration: string | null
+  price_minor: number | null
+  currency_code: string | null
+  duration_minutes: number | null
+  stops_count: number | null
+  normalized_offer_id: string | null
+  provider_offer_id: string | null
+  missing_fields: string[]
+  conversion_status: ConversionStatus | null
+  airfare_provenance: AirfareProvenance
+  airfare_freshness: AirfareFreshness
 }
 
 export type SearchResult = StaySearchResult | FlightSearchResult
