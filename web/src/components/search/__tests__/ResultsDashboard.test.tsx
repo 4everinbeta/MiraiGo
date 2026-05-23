@@ -1,5 +1,45 @@
 import { render, screen } from '@testing-library/react'
 import ResultsDashboard from '../ResultsDashboard'
+import type { FlightSearchResult } from '@/lib/api'
+
+const normalizedContractFixture = {
+  inventory_type: 'flight',
+  provider: 'duffel',
+  provider_label: 'Duffel',
+  title: 'Contract fixture',
+  description: 'Canonical normalized contract fixture',
+  total_price: 640,
+  currency: 'USD',
+  score: 90,
+  price_known: true,
+  price_label: null,
+  origin_code: 'DEN',
+  destination_code: 'BCN',
+  departure_at: '2026-05-03T09:30:00',
+  arrival_at: '2026-05-03T20:15:00',
+  carrier_codes: ['TP'],
+  stops: 1,
+  duration: 'PT10H45M',
+  price_minor: 64000,
+  currency_code: 'USD',
+  duration_minutes: 645,
+  stops_count: 1,
+  normalized_offer_id: 'offer-den-bcn-001',
+  provider_offer_id: 'duffel-offer-123',
+  missing_fields: [],
+  conversion_status: 'native',
+  airfare_provenance: {
+    source_provider: 'duffel',
+    provider_offer_id: 'duffel-offer-123',
+    source_quote_at: '2026-05-01T12:00:00Z',
+    source_payload_ref: 'payload-ref-1',
+  },
+  airfare_freshness: {
+    freshness_source: 'provider_quote',
+    freshness_at: '2026-05-01T12:00:00Z',
+    fetched_at: '2026-05-01T12:01:00Z',
+  },
+} satisfies FlightSearchResult
 
 describe('ResultsDashboard', () => {
   const providerStatuses = [
