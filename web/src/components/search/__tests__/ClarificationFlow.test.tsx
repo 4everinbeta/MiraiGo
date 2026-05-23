@@ -240,4 +240,84 @@ describe('ClarificationFlow', () => {
     )
     expect(continueButton).toBeDisabled()
   })
+
+  it('renders date-range remediation controls when continue is blocked by missing date_range', () => {
+    render(
+      <SearchForm
+        onSearch={jest.fn()}
+        clarificationState={buildClarificationState({
+          next_question: null,
+          all_critical_slots_resolved: true,
+          flight_requirements_pending: ['date_range'],
+          continue_block_reason: 'Continue needs date_range before flight recommendations can load.',
+        })}
+      />
+    )
+
+    expect(screen.getByLabelText(/start date/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/end date/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /submit date range/i })).toBeInTheDocument()
+  })
+
+  it('submits date-range remediation with constraint_updates.date_range shape', () => {
+    const onSearch = jest.fn()
+    render(
+      <SearchForm
+        onSearch={onSearch}
+        clarificationState={buildClarificationState({
+          next_question: null,
+          all_critical_slots_resolved: true,
+          flight_requirements_pending: ['date_range'],
+          continue_block_reason: 'Continue needs date_range before flight recommendations can load.',
+        })}
+        preservedRequest={{
+          query: 'Lisbon trip in June',
+          destination: 'Lisbon',
+          origin: 'Denver',
+          trip_length_days: 7,
+          budget_range: { minimum: 1500, maximum: 2500, currency_code: 'USD' },
+        }}
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText(/start date/i), {
+      target: { value: '2026-06-01' },
+    })
+    fireEvent.change(screen.getByLabelText(/end date/i), {
+      target: { value: '2026-06-08' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit date range/i }))
+
+    expect(onSearch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: 'Lisbon',
+        constraint_updates: expect.objectContaining({
+          date_range: {
+            start: '2026-06-01',
+            end: '2026-06-08',
+          },
+        }),
+      })
+    )
+  })
+
+  it('renders origin and date-range remediation controls together when both requirements are pending', () => {
+    render(
+      <SearchForm
+        onSearch={jest.fn()}
+        clarificationState={buildClarificationState({
+          next_question: null,
+          all_critical_slots_resolved: true,
+          flight_requirements_pending: ['origin', 'date_range'],
+          continue_block_reason: 'Continue needs origin and date_range before flight recommendations can load.',
+        })}
+      />
+    )
+
+    expect(screen.getByLabelText(/origin/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/start date/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/end date/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /submit origin/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /submit date range/i })).toBeInTheDocument()
+  })
 })
