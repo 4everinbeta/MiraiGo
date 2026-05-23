@@ -492,10 +492,14 @@ class SearchService:
                     )
                 reopen_related_slots(slot_states, slot)
 
-        if request.constraint_updates:
+        constraint_updates = request.constraint_updates
+        if isinstance(constraint_updates, dict):
+            constraint_updates = ConstraintUpdates.model_validate(constraint_updates)
+
+        if constraint_updates:
             self._apply_constraint_updates(
                 updates=updates,
-                constraint_updates=request.constraint_updates,
+                constraint_updates=constraint_updates,
                 slot_states=slot_states,
                 history=history,
                 allowed_update_slots=allowed_update_slots,
@@ -632,6 +636,9 @@ class SearchService:
         history: list,
         allowed_update_slots: set[ClarificationSlot],
     ) -> None:
+        if constraint_updates.origin is not None:
+            updates["origin"] = constraint_updates.origin
+
         if constraint_updates.destination is not None:
             previous = slot_states[ClarificationSlot.DESTINATION].value_label
             updates["destination"] = constraint_updates.destination

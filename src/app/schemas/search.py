@@ -226,6 +226,7 @@ class ClarificationRecapEdit(BaseModel):
 
 
 class ConstraintUpdates(BaseModel):
+    origin: str | None = Field(default=None, max_length=120)
     destination: str | None = Field(default=None, max_length=120)
     destination_candidates: list[str] = Field(default_factory=list)
     destination_selection_mode: DestinationSelectionMode | None = None
