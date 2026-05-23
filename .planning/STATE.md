@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realtime Airfare Integrations
-status: completed
-stopped_at: Phase 11 UI-SPEC approved
-last_updated: "2026-05-23T00:05:40.104Z"
-last_activity: 2026-04-26
+status: executing
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-05-23T00:20:13.038Z"
+last_activity: 2026-05-23
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 6
-  completed_plans: 3
-  percent: 50
+  completed_plans: 4
+  percent: 67
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-26)
 
 **Core value:** Given vague travel intent, MiraiGo reliably converts it into personalized, ranked destination suggestions with clear rationale.
-**Current focus:** Plan and execute v1.1 realtime airfare integration phases (10-13).
+**Current focus:** Phase 11 — Airfare Normalization, Provenance, and Contracts
 
 ## Current Position
 
-Phase: 10 (Dual-Provider Realtime Airfare Retrieval)
-Plan: 03 (completed)
-Status: Phase 10 Plan 03 complete; phase ready for milestone progression
-Last activity: 2026-04-26
+Phase: 11 (Airfare Normalization, Provenance, and Contracts) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-05-23
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [██████████] 100%
 | Phase 10-dual-provider-realtime-airfare-retrieval P01 | 11min | 2 tasks | 3 files |
 | Phase 10-dual-provider-realtime-airfare-retrieval P02 | 18min | 2 tasks | 3 files |
 | Phase 10-dual-provider-realtime-airfare-retrieval P03 | 1min | 2 tasks | 3 files |
+| Phase 11-airfare-normalization-provenance-and-contracts P01 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,8 @@ Recent decisions affecting current work:
 - [Phase 10-02] Deterministic dual-flight merge preserves provider-local order with registry-order tie-breaks.
 - [Phase 10-03] Lock partial-failure continuity with API assertions on warnings/provider_status plus surviving provider results in one /search response.
 - [Phase 10-03] Announce degraded warning panels with aria-live polite and verify API-ordered flight rendering in ResultsDashboard tests.
+- [Phase 11-01] Keep legacy flight fare fields with explicit DEPRECATED metadata for one-phase migration while introducing canonical normalized fields.
+- [Phase 11-01] Derive normalized_offer_id from canonical sorted JSON + SHA-256 over provider/route/time/price primitives for deterministic identity.
 
 ### Roadmap Evolution
 
@@ -121,8 +124,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 11 UI-SPEC approved
-Resume file: --resume-file
+Last session: 2026-05-23T00:20:13.028Z
+Stopped at: Completed 11-01-PLAN.md
+Resume file: None
 
 **Planned Phase:** 11 (Airfare Normalization, Provenance, and Contracts) — 3 plans — 2026-05-23T00:05:40.098Z

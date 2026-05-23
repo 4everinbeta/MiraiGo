@@ -11,8 +11,10 @@
 **: User can receive realtime flight offers from Amadeus for selected travel constraints.
 - [x] **AIR-02
 **: User can receive realtime flight offers from Duffel for selected travel constraints.
-- [ ] **AIR-03**: User can view comparable normalized airfare fields (price, currency, stops, duration) across providers.
-- [ ] **AIR-04**: User can view freshness and provenance metadata for each airfare offer.
+- [x] **AIR-03
+**: User can view comparable normalized airfare fields (price, currency, stops, duration) across providers.
+- [x] **AIR-04
+**: User can view freshness and provenance metadata for each airfare offer.
 
 ### Reliability & Continuity
 
@@ -22,7 +24,8 @@
 ### Ranking & Contract Integrity
 
 - [ ] **AIR-07**: User-facing ranking and budget-fit calculations use normalized current airfare totals.
-- [ ] **AIR-08**: API and frontend contracts expose deterministic typed airfare-context fields for rendering and logic.
+- [x] **AIR-08
+**: API and frontend contracts expose deterministic typed airfare-context fields for rendering and logic.
 
 ## v2 Requirements
 
