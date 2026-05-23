@@ -156,6 +156,9 @@ class AmadeusFlightsProvider(TravelProvider):
 
         first_segment = segments[0]
         last_segment = segments[-1]
+        itinerary_stops = first_itinerary.get("numberOfStops")
+        if not isinstance(itinerary_stops, int) or itinerary_stops < 0:
+            itinerary_stops = max(0, len(segments) - 1)
         carrier_codes = sorted(
             {segment.get("carrierCode") for segment in segments if segment.get("carrierCode")}
         )
@@ -185,8 +188,9 @@ class AmadeusFlightsProvider(TravelProvider):
             departure_at=first_segment.get("departure", {}).get("at", ""),
             arrival_at=last_segment.get("arrival", {}).get("at", ""),
             carrier_codes=carrier_codes,
-            stops=max(0, len(segments) - 1),
+            stops=itinerary_stops,
             duration=first_itinerary.get("duration"),
+            provider_offer_id=offer.get("id"),
         )
 
     def _normalize_iata(self, raw_code: str | None) -> str | None:

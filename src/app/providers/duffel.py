@@ -157,6 +157,9 @@ class DuffelFlightsProvider(TravelProvider):
 
         first_segment = segments[0]
         last_segment = segments[-1]
+        slice_stops = first_slice.get("stops")
+        if not isinstance(slice_stops, int) or slice_stops < 0:
+            slice_stops = max(0, len(segments) - 1)
         carrier_codes = sorted(
             {
                 segment.get("operating_carrier", {}).get("iata_code")
@@ -205,8 +208,9 @@ class DuffelFlightsProvider(TravelProvider):
             departure_at=first_segment.get("departing_at", ""),
             arrival_at=last_segment.get("arriving_at", ""),
             carrier_codes=carrier_codes,
-            stops=max(0, len(segments) - 1),
+            stops=slice_stops,
             duration=first_slice.get("duration"),
+            provider_offer_id=offer.get("id"),
         )
 
     def _flight_score(self, price: float, stops: int) -> float:
