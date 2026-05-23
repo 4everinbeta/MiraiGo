@@ -183,4 +183,61 @@ describe('ClarificationFlow', () => {
       screen.getByText('Continue needs origin and date_range before flight recommendations can load.')
     ).toBeInTheDocument()
   })
+
+  it('renders origin remediation controls when continue is blocked by missing origin', () => {
+    render(
+      <SearchForm
+        onSearch={jest.fn()}
+        clarificationState={buildClarificationState({
+          next_question: null,
+          all_critical_slots_resolved: true,
+          flight_requirements_pending: ['origin'],
+          continue_block_reason: 'Continue needs origin before flight recommendations can load.',
+        })}
+      />
+    )
+
+    expect(screen.getByLabelText(/origin/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /submit origin/i })).toBeInTheDocument()
+  })
+
+  it('submits origin remediation with constraint_updates.origin while continue stays blocked', () => {
+    const onSearch = jest.fn()
+    render(
+      <SearchForm
+        onSearch={onSearch}
+        clarificationState={buildClarificationState({
+          next_question: null,
+          all_critical_slots_resolved: true,
+          flight_requirements_pending: ['origin'],
+          continue_block_reason: 'Continue needs origin before flight recommendations can load.',
+        })}
+        preservedRequest={{
+          query: 'Lisbon trip in June',
+          destination: 'Lisbon',
+          date_range: { start: '2026-06-01', end: '2026-06-08' },
+          trip_length_days: 7,
+          budget_range: { minimum: 1500, maximum: 2500, currency_code: 'USD' },
+        }}
+      />
+    )
+
+    const continueButton = screen.getByRole('button', { name: /continue to recommendations/i })
+    expect(continueButton).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText(/origin/i), {
+      target: { value: 'Denver' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit origin/i }))
+
+    expect(onSearch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: 'Lisbon',
+        constraint_updates: expect.objectContaining({
+          origin: 'Denver',
+        }),
+      })
+    )
+    expect(continueButton).toBeDisabled()
+  })
 })
