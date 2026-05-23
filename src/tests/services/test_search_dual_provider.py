@@ -184,6 +184,10 @@ async def test_dual_provider_interleave_is_deterministic():
     second_ids = [item.normalized_offer_id for item in second.results]
     assert all(offer_id is not None for offer_id in first_ids)
     assert first_ids == second_ids
+    for item in first.results:
+        assert item.airfare_provenance.source_provider == item.provider
+        assert item.airfare_freshness.freshness_source in {"provider_fetch", "provider_quote", None}
+        assert isinstance(item.missing_fields, list)
 
 
 @pytest.mark.asyncio

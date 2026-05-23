@@ -100,6 +100,37 @@ class PartialFailureFlightProvider(TravelProvider):
         raise ProviderError("upstream timeout")
 
 
+class SparseFlightProvider(TravelProvider):
+    provider_name = "sparseflight"
+    display_name = "Sparse Flight"
+    inventory_types = (InventoryType.FLIGHT,)
+
+    @property
+    def is_configured(self) -> bool:
+        return True
+
+    async def search(self, request: SearchRequest, inventory_type: InventoryType):
+        return [
+            FlightSearchResult(
+                inventory_type=InventoryType.FLIGHT,
+                provider=self.provider_name,
+                provider_label=self.display_name,
+                title=f"{request.origin} to {request.destination}",
+                description="Sparse flight result",
+                total_price=640,
+                currency="USD",
+                score=75,
+                origin_code="DEN",
+                destination_code="BCN",
+                departure_at="",
+                arrival_at="",
+                carrier_codes=["TP"],
+                stops=0,
+                duration=None,
+            )
+        ]
+
+
 def test_post_search_returns_canonical_results():
     search_service.providers = [ConfiguredProvider(), DisabledProvider()]
 
@@ -128,8 +159,89 @@ def test_post_search_returns_canonical_results():
     assert len(payload["results"]) == 2
     assert payload["recommendation_packages"]
     assert {item["inventory_type"] for item in payload["results"]} == {"stay", "flight"}
+    flight_offer = next(item for item in payload["results"] if item["inventory_type"] == "flight")
+    assert flight_offer["price_minor"] == 64000
+    assert flight_offer["currency_code"] == "USD"
+    assert flight_offer["duration_minutes"] == 645
+    assert flight_offer["stops_count"] == 1
+    assert flight_offer["normalized_offer_id"]
+    assert "provider_offer_id" in flight_offer
+    assert isinstance(flight_offer["missing_fields"], list)
+    assert flight_offer["conversion_status"] == "native"
+    assert set(flight_offer["airfare_provenance"].keys()) == {
+        "source_provider",
+        "provider_offer_id",
+        "source_quote_at",
+        "source_payload_ref",
+    }
+    assert set(flight_offer["airfare_freshness"].keys()) == {
+        "freshness_source",
+        "freshness_at",
+        "fetched_at",
+    }
+    assert flight_offer["total_price"] == 640
+    assert flight_offer["currency"] == "USD"
+    assert flight_offer["stops"] == 1
+    assert flight_offer["duration"] == "PT10H45M"
     assert any(status["provider"] == "testlive" and status["configured"] for status in payload["provider_status"])
     assert any(status["provider"] == "disabled" and not status["configured"] for status in payload["provider_status"])
+
+
+def test_post_search_keeps_null_present_normalized_contract_for_sparse_offers():
+    search_service.providers = [SparseFlightProvider()]
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Barcelona trip from Denver",
+            "destination": "Barcelona",
+            "origin": "Denver",
+            "inventory": ["flight"],
+            "date_range": {"start": "2026-05-03", "end": "2026-05-08"},
+            "trip_length_days": 5,
+            "budget_range": {"minimum": 800, "maximum": 2000, "currency_code": "USD"},
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    offer = response.json()["results"][0]
+    assert offer["duration_minutes"] is None
+    assert offer["normalized_offer_id"] is None
+    assert "departure_at" in offer["missing_fields"]
+    assert "arrival_at" in offer["missing_fields"]
+    assert "duration_minutes" in offer["missing_fields"]
+
+
+def test_post_search_keeps_normalized_offer_id_stable_across_repeated_calls():
+    search_service.providers = [ConfiguredProvider()]
+    payload = {
+        "query": "Barcelona trip from Denver",
+        "destination": "Barcelona",
+        "origin": "Denver",
+        "inventory": ["flight"],
+        "date_range": {"start": "2026-05-03", "end": "2026-05-08"},
+        "trip_length_days": 5,
+        "budget_range": {"minimum": 800, "maximum": 2000, "currency_code": "USD"},
+        "travelers": {"adults": 1, "children": 0, "infants": 0},
+        "stay_filters": {"amenities": []},
+        "flight_filters": {"nonstop": False},
+        "currency_code": "USD",
+        "limit_per_provider": 5,
+    }
+
+    first = client.post("/api/v1/search", json=payload)
+    second = client.post("/api/v1/search", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    first_offer = first.json()["results"][0]
+    second_offer = second.json()["results"][0]
+    assert first_offer["normalized_offer_id"] == second_offer["normalized_offer_id"]
 
 
 def test_post_search_handles_no_configured_providers():
