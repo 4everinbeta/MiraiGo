@@ -11,6 +11,7 @@ import type {
   ClarificationState,
   DestinationSuggestion,
   InventoryType,
+  SearchDateRange,
   SearchRequest,
 } from '@/lib/api'
 
@@ -74,6 +75,8 @@ export default function SearchForm({
   const [editedValue, setEditedValue] = useState('')
   const [selectedSuggestionIds, setSelectedSuggestionIds] = useState<string[]>([])
   const [originRemediationValue, setOriginRemediationValue] = useState('')
+  const [dateRangeStartRemediationValue, setDateRangeStartRemediationValue] = useState('')
+  const [dateRangeEndRemediationValue, setDateRangeEndRemediationValue] = useState('')
 
   const activeQuestion = clarificationState?.next_question ?? null
   const destinationSuggestions = clarificationState?.destination_suggestions ?? []
@@ -89,6 +92,7 @@ export default function SearchForm({
       ? `Continue needs ${pendingFlightRequirements.join(', ')} before flight recommendations can load.`
       : null)
   const originRequiredForContinue = continueBlocked && pendingFlightRequirements.includes('origin')
+  const dateRangeRequiredForContinue = continueBlocked && pendingFlightRequirements.includes('date_range')
   const isDestinationQuestion = activeQuestion?.slot === 'destination'
 
   const activeChip = useMemo(
@@ -207,20 +211,37 @@ export default function SearchForm({
     })
   }
 
+  const submitContinueRemediation = (constraint_updates: SearchRequest['constraint_updates']) => {
+    onSearch({
+      ...buildBaseRequest(query),
+      ...preservedRequest,
+      query: query.trim() || preservedRequest?.query || undefined,
+      constraint_updates,
+    })
+  }
+
   const submitOriginRemediation = (event: React.FormEvent) => {
     event.preventDefault()
     const origin = originRemediationValue.trim()
     if (!originRequiredForContinue || !origin || isSubmitting) return
 
-    onSearch({
-      ...buildBaseRequest(query),
-      ...preservedRequest,
-      query: query.trim() || preservedRequest?.query || undefined,
-      constraint_updates: {
-        origin,
-      },
-    })
+    submitContinueRemediation({ origin })
     setOriginRemediationValue('')
+  }
+
+  const submitDateRangeRemediation = (event: React.FormEvent) => {
+    event.preventDefault()
+    const start = dateRangeStartRemediationValue.trim()
+    const end = dateRangeEndRemediationValue.trim()
+    if (!dateRangeRequiredForContinue || !start || isSubmitting) return
+
+    const dateRange: SearchDateRange = {
+      start,
+      ...(end ? { end } : {}),
+    }
+    submitContinueRemediation({ date_range: dateRange })
+    setDateRangeStartRemediationValue('')
+    setDateRangeEndRemediationValue('')
   }
 
   return (
@@ -455,6 +476,36 @@ export default function SearchForm({
                 <div className="flex flex-wrap gap-2">
                   <Button disabled={!originRemediationValue.trim() || isSubmitting} type="submit">
                     Submit origin
+                  </Button>
+                </div>
+              </form>
+            )}
+            {dateRangeRequiredForContinue && (
+              <form
+                className="space-y-3 rounded-xl border border-primary/20 bg-white p-4"
+                onSubmit={submitDateRangeRemediation}
+              >
+                <label className="space-y-2 text-sm font-normal leading-[1.4] text-sumi">
+                  Start date
+                  <Input
+                    aria-label="Start date"
+                    onChange={(event) => setDateRangeStartRemediationValue(event.target.value)}
+                    placeholder="YYYY-MM-DD"
+                    value={dateRangeStartRemediationValue}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-normal leading-[1.4] text-sumi">
+                  End date
+                  <Input
+                    aria-label="End date"
+                    onChange={(event) => setDateRangeEndRemediationValue(event.target.value)}
+                    placeholder="YYYY-MM-DD"
+                    value={dateRangeEndRemediationValue}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Button disabled={!dateRangeStartRemediationValue.trim() || isSubmitting} type="submit">
+                    Submit date range
                   </Button>
                 </div>
               </form>
