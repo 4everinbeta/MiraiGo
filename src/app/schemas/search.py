@@ -129,6 +129,8 @@ class ClarificationState(BaseModel):
     next_question: ClarificationQuestion | None = None
     recap: ClarificationRecap = Field(default_factory=ClarificationRecap)
     all_critical_slots_resolved: bool = False
+    flight_requirements_pending: list[str] = Field(default_factory=list)
+    continue_block_reason: str | None = None
     history: list["ClarificationHistoryEntry"] = Field(default_factory=list)
     loop_guard_counter: int = Field(default=0, ge=0)
     repeated_question_slot: ClarificationSlot | None = None

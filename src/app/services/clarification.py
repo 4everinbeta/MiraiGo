@@ -14,6 +14,7 @@ from src.app.schemas.search import (
     DestinationSuggestion,
     DestinationSuggestionKind,
     DestinationSuggestionSource,
+    SearchRequest,
 )
 
 # Ordered list keeps one-question-at-a-time behavior deterministic (D-03/D-04).
@@ -26,6 +27,8 @@ CRITICAL_SLOT_ORDER: tuple[ClarificationSlot, ...] = (
 
 # Single v1 threshold keeps confidence policy predictable across slots (D-10).
 GLOBAL_CONFIDENCE_THRESHOLD: float = 0.65
+
+FLIGHT_PREREQUISITE_FIELDS: tuple[str, ...] = ("origin", "destination", "date_range")
 
 RELATED_SLOT_GRAPH: dict[ClarificationSlot, tuple[ClarificationSlot, ...]] = {
     ClarificationSlot.DESTINATION: (
@@ -205,6 +208,34 @@ def normalize_destination_candidates(
     return normalized
 
 
+def get_missing_flight_prerequisites(request: SearchRequest) -> list[str]:
+    missing: list[str] = []
+    if not request.origin:
+        missing.append("origin")
+    if not request.destination:
+        missing.append("destination")
+    if not request.date_range:
+        missing.append("date_range")
+    return missing
+
+
+def build_continue_block_reason(flight_requirements_pending: list[str]) -> str | None:
+    if not flight_requirements_pending:
+        return None
+    if len(flight_requirements_pending) == 1:
+        requirement_copy = flight_requirements_pending[0]
+    else:
+        requirement_copy = ", ".join(flight_requirements_pending[:-1]) + f" and {flight_requirements_pending[-1]}"
+    return f"Continue needs {requirement_copy} before flight recommendations can load."
+
+
+def build_flight_requirement_warning(flight_requirements_pending: list[str]) -> str | None:
+    if not flight_requirements_pending:
+        return None
+    requirement_copy = ", ".join(flight_requirements_pending)
+    return f"Flight recommendations are paused until you provide: {requirement_copy}."
+
+
 def _extract_query_signals(query_text: str | None) -> set[str]:
     if not query_text:
         return set()
@@ -224,6 +255,8 @@ def build_clarification_state(
     slot_states: dict[ClarificationSlot, ClarificationSlotState],
     history: list[ClarificationHistoryEntry] | None = None,
     weather_state: ClarificationSlotState | None = None,
+    flight_requirements_pending: list[str] | None = None,
+    continue_block_reason: str | None = None,
 ) -> ClarificationState:
     resolved = all_critical_slots_resolved(slot_states)
     next_question = None if resolved else select_next_question(slot_states)
@@ -236,6 +269,8 @@ def build_clarification_state(
         next_question=next_question,
         recap=build_recap(slot_states),
         all_critical_slots_resolved=resolved,
+        flight_requirements_pending=flight_requirements_pending or [],
+        continue_block_reason=continue_block_reason,
         history=history or [],
     )
 

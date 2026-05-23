@@ -42,9 +42,13 @@ from src.app.schemas.search import (
 from src.app.services.airfare_normalization import normalize_airfare_offer
 from src.app.services.clarification import (
     CRITICAL_SLOT_ORDER,
+    FLIGHT_PREREQUISITE_FIELDS,
     GLOBAL_CONFIDENCE_THRESHOLD,
+    build_continue_block_reason,
     build_destination_suggestions,
+    build_flight_requirement_warning,
     build_clarification_state,
+    get_missing_flight_prerequisites,
     make_history_entry,
     normalize_destination_candidates,
     reopen_related_slots,
@@ -194,9 +198,6 @@ class SearchService:
             if origin:
                 request = request.model_copy(update={"origin": origin})
 
-        if not request.origin and InventoryType.FLIGHT in request.inventory:
-            warnings.append("Flight search needs an origin airport or city; flights may be skipped.")
-
         if slot_states[ClarificationSlot.DESTINATION].confidence < GLOBAL_CONFIDENCE_THRESHOLD:
             warnings.append("Destination is still unclear; please confirm to improve results.")
 
@@ -220,10 +221,18 @@ class SearchService:
                 }
             )
 
+        flight_requirements_pending = (
+            get_missing_flight_prerequisites(request)
+            if InventoryType.FLIGHT in request.inventory
+            else []
+        )
+
         clarification_state = build_clarification_state(
             slot_states,
             history=history,
             weather_state=slot_states.get(ClarificationSlot.WEATHER),
+            flight_requirements_pending=flight_requirements_pending,
+            continue_block_reason=build_continue_block_reason(flight_requirements_pending),
         )
         clarification_state = self._apply_repeated_question_guard(
             clarification_state=clarification_state,
@@ -1073,10 +1082,9 @@ class SearchService:
     def _can_show_flights(self, request: SearchRequest) -> tuple[bool, str | None]:
         if InventoryType.FLIGHT not in request.inventory:
             return False, None
-        if not request.destination or not request.origin or not request.date_range:
-            return False, (
-                "Flight results are waiting on origin, destination, and date range confirmation."
-            )
+        missing_requirements = get_missing_flight_prerequisites(request)
+        if missing_requirements:
+            return False, build_flight_requirement_warning(missing_requirements)
         if not self._is_stable_clarification_turn(request):
             return False, "Flight results will appear after clarification updates are confirmed."
         return True, None
