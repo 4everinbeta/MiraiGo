@@ -157,8 +157,20 @@ export default function ResultsDashboard({
   const providerList = response?.provider_status ?? providerStatuses
   const recommendationPackages = response?.recommendation_packages ?? []
   const hasSearched = Boolean(response || errorMessage)
+  const clarificationState = response?.clarification_state ?? null
+  const pendingFlightRequirements = clarificationState?.flight_requirements_pending ?? []
+  const continueBlockReason = clarificationState?.continue_block_reason?.trim() || null
+  const hasStructuredFlightRemediation =
+    pendingFlightRequirements.length > 0 || Boolean(continueBlockReason)
   const flightWarnings = response?.warnings.filter((warning) => warning.toLowerCase().includes('flight')) ?? []
   const generalWarnings = response?.warnings.filter((warning) => !warning.toLowerCase().includes('flight')) ?? []
+  const flightNoticeMessages = [
+    ...(continueBlockReason ? [continueBlockReason] : []),
+    ...(pendingFlightRequirements.length > 0
+      ? [`Missing prerequisites: ${pendingFlightRequirements.join(', ')}`]
+      : []),
+    ...flightWarnings,
+  ]
 
   return (
     <div className="space-y-8">
@@ -205,14 +217,14 @@ export default function ResultsDashboard({
         </Card>
       ) : null}
 
-      {!isLoading && response && flightWarnings.length > 0 ? (
+      {!isLoading && response && flightNoticeMessages.length > 0 ? (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-sumi">Flight search notice</CardTitle>
           </CardHeader>
           <CardContent aria-live="polite" className="space-y-2 pt-0 text-sm text-sumi/80">
-            {flightWarnings.map((warning) => (
-              <p key={warning}>{warning}</p>
+            {flightNoticeMessages.map((message) => (
+              <p key={message}>{message}</p>
             ))}
           </CardContent>
         </Card>
@@ -317,7 +329,11 @@ export default function ResultsDashboard({
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No flight results returned.</p>
+              <p className="text-sm text-muted-foreground">
+                {hasStructuredFlightRemediation
+                  ? 'No flight results returned yet. Resolve the flight prerequisites above and continue your search.'
+                  : 'No flight results returned.'}
+              </p>
             )}
           </section>
         </div>
