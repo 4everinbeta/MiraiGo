@@ -1,6 +1,8 @@
 import pytest
 
 from src.app.schemas.search import (
+    AirfareFreshness,
+    AirfareProvenance,
     ClarificationAnswer,
     ClarificationState,
     ClarificationSlot,
@@ -9,6 +11,7 @@ from src.app.schemas.search import (
     DestinationSuggestionSource,
     FlightPreferenceConstraints,
     InventoryType,
+    FlightSearchResult,
     SearchResponse,
     SearchDateRange,
     SearchRequest,
@@ -142,3 +145,86 @@ def test_clarification_state_supports_destination_suggestion_payloads():
     assert state.destination_selection_mode == "compare"
     assert state.destination_suggestions[0].popularity_score == 0.92
     assert state.resolved_destination_candidates == ["Cancun", "Punta Cana"]
+
+
+def test_flight_search_result_accepts_canonical_normalized_fields():
+    flight = FlightSearchResult(
+        inventory_type=InventoryType.FLIGHT,
+        provider="amadeus",
+        provider_label="Amadeus",
+        title="MIA → CDG",
+        description="Direct flight",
+        total_price=1234.56,
+        currency="USD",
+        origin_code="MIA",
+        destination_code="CDG",
+        departure_at="2026-08-01T10:00:00Z",
+        arrival_at="2026-08-01T18:00:00Z",
+        carrier_codes=["AF"],
+        price_minor=123456,
+        currency_code="USD",
+        duration_minutes=480,
+        stops_count=0,
+        normalized_offer_id="offer-abc",
+        provider_offer_id="provider-123",
+        missing_fields=[],
+        conversion_status="native",
+        airfare_provenance=AirfareProvenance(
+            source_provider="amadeus",
+            provider_offer_id="provider-123",
+        ),
+        airfare_freshness=AirfareFreshness(
+            freshness_source="provider_quote",
+            freshness_at="2026-08-01T09:55:00Z",
+        ),
+    )
+    assert flight.price_minor == 123456
+    assert flight.stops_count == 0
+    assert flight.duration_minutes == 480
+
+
+def test_flight_search_result_keeps_null_present_normalized_keys_with_missing_fields():
+    flight = FlightSearchResult(
+        inventory_type=InventoryType.FLIGHT,
+        provider="duffel",
+        provider_label="Duffel",
+        title="SEA → LIS",
+        description="Partial data",
+        total_price=0.0,
+        currency="USD",
+        origin_code="SEA",
+        destination_code="LIS",
+        departure_at="2026-09-10T06:00:00Z",
+        arrival_at="2026-09-10T16:00:00Z",
+        price_minor=None,
+        currency_code=None,
+        duration_minutes=None,
+        stops_count=None,
+        normalized_offer_id=None,
+        provider_offer_id=None,
+        missing_fields=["duration_minutes", "price_minor", "stops_count"],
+        conversion_status=None,
+        airfare_provenance=AirfareProvenance(
+            source_provider="duffel",
+            provider_offer_id=None,
+            source_quote_at=None,
+            source_payload_ref=None,
+        ),
+        airfare_freshness=AirfareFreshness(
+            freshness_source=None,
+            freshness_at=None,
+            fetched_at=None,
+        ),
+    )
+    serialized = flight.model_dump()
+    assert serialized["duration_minutes"] is None
+    assert serialized["price_minor"] is None
+    assert serialized["missing_fields"] == ["duration_minutes", "price_minor", "stops_count"]
+    assert serialized["airfare_freshness"]["freshness_source"] is None
+
+
+def test_flight_search_result_retains_deprecated_legacy_fields_for_phase_migration():
+    assert "DEPRECATED" in (FlightSearchResult.model_fields["total_price"].description or "")
+    assert "DEPRECATED" in (FlightSearchResult.model_fields["currency"].description or "")
+    assert "DEPRECATED" in (FlightSearchResult.model_fields["stops"].description or "")
+    assert "DEPRECATED" in (FlightSearchResult.model_fields["duration"].description or "")
