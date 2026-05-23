@@ -342,6 +342,31 @@ class BaseSearchResult(BaseModel):
     price_label: str | None = None
 
 
+class ConversionStatus(str, Enum):
+    NATIVE = "native"
+    CONVERTED = "converted"
+    UNAVAILABLE = "unavailable"
+
+
+class FreshnessSource(str, Enum):
+    PROVIDER_QUOTE = "provider_quote"
+    PROVIDER_FETCH = "provider_fetch"
+    CACHE_WRITE = "cache_write"
+
+
+class AirfareProvenance(BaseModel):
+    source_provider: str | None = None
+    provider_offer_id: str | None = None
+    source_quote_at: str | None = None
+    source_payload_ref: str | None = None
+
+
+class AirfareFreshness(BaseModel):
+    freshness_source: FreshnessSource | None = None
+    freshness_at: str | None = None
+    fetched_at: str | None = None
+
+
 class StaySearchResult(BaseSearchResult):
     inventory_type: Literal[InventoryType.STAY]
     location_label: str | None = None
@@ -354,13 +379,35 @@ class StaySearchResult(BaseSearchResult):
 
 class FlightSearchResult(BaseSearchResult):
     inventory_type: Literal[InventoryType.FLIGHT]
+    total_price: float = Field(
+        description="DEPRECATED: Use `price_minor` and `currency_code` for normalized airfare."
+    )
+    currency: str = Field(
+        description="DEPRECATED: Use `currency_code` for normalized airfare comparisons."
+    )
     origin_code: str
     destination_code: str
     departure_at: str
     arrival_at: str
     carrier_codes: list[str] = Field(default_factory=list)
-    stops: int = 0
-    duration: str | None = None
+    stops: int = Field(
+        default=0,
+        description="DEPRECATED: Use `stops_count` for canonical normalized stop count.",
+    )
+    duration: str | None = Field(
+        default=None,
+        description="DEPRECATED: Use `duration_minutes` for canonical normalized duration.",
+    )
+    price_minor: int | None = None
+    currency_code: str | None = None
+    duration_minutes: int | None = None
+    stops_count: int | None = None
+    normalized_offer_id: str | None = None
+    provider_offer_id: str | None = None
+    missing_fields: list[str] = Field(default_factory=list)
+    conversion_status: ConversionStatus | None = None
+    airfare_provenance: AirfareProvenance = Field(default_factory=AirfareProvenance)
+    airfare_freshness: AirfareFreshness = Field(default_factory=AirfareFreshness)
 
 
 SearchResult = Annotated[
