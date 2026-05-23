@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Realtime Airfare Integrations
-status: ready_to_plan
-stopped_at: Completed 11-05-PLAN.md
-last_updated: "2026-05-23T01:09:13.862Z"
+status: planning
+stopped_at: Completed 11-06-PLAN.md
+last_updated: "2026-05-23T15:11:36.426Z"
 last_activity: 2026-05-23
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 75
+  completed_phases: 2
+  total_plans: 9
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -70,6 +70,7 @@ Progress: [██████████] 100%
 | Phase 11-airfare-normalization-provenance-and-contracts P03 | 2min | 3 tasks | 3 files |
 | Phase 11 P04 | 3min | 2 tasks | 8 files |
 | Phase 11 P05 | 2min | 2 tasks | 2 files |
+| Phase 11 P06 | 21min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -120,6 +121,8 @@ Recent decisions affecting current work:
 - [Phase 11-04] Use shared clarification prerequisite helpers for both _can_show_flights and warning/continue copy generation to prevent contract drift.
 - [Phase 11-05] Drive no-flight remediation in ResultsDashboard from clarification_state.flight_requirements_pending and continue_block_reason.
 - [Phase 11-05] Treat warning text as supplemental messaging and not as gating input for remediation decisions.
+- Expose origin correction only through typed constraint_updates.origin in both API contracts.
+- Keep continue gating driven by server-provided flight_requirements_pending and continue_block_reason.
 
 ### Roadmap Evolution
 
@@ -136,8 +139,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-23T01:09:13.856Z
-Stopped at: Completed 11-05-PLAN.md
+Last session: 2026-05-23T15:11:36.420Z
+Stopped at: Completed 11-06-PLAN.md
 Resume file: None
 
 **Planned Phase:** 11 (Airfare Normalization, Provenance, and Contracts) — 3 plans — 2026-05-23T00:05:40.098Z
