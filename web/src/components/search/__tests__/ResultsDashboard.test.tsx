@@ -221,6 +221,139 @@ describe('ResultsDashboard', () => {
     expect(warningMessage.closest('[aria-live="polite"]')).toBeInTheDocument()
   })
 
+  it('renders remediation callout for stay-only responses when flight prerequisites are pending', () => {
+    render(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={providerStatuses}
+        response={{
+          search_id: 'search-structured-1',
+          query: 'Barcelona trip',
+          requested_inventory: ['stay', 'flight'],
+          applied_filters: {
+            destination: 'Barcelona',
+            origin: null,
+            date_range: null,
+            travelers: { adults: 1, children: 0, infants: 0 },
+            stay_filters: { amenities: [] },
+            flight_filters: { nonstop: false },
+          },
+          provider_status: providerStatuses,
+          warnings: [],
+          clarification_state: {
+            ...({
+              destination: { slot: 'destination', confidence: 1, ambiguous: false, explicit_unknown: false, source: 'user' },
+              timeline: { slot: 'timeline', confidence: 1, ambiguous: false, explicit_unknown: false, source: 'user' },
+              trip_length: { slot: 'trip_length', confidence: 1, ambiguous: false, explicit_unknown: false, source: 'user' },
+              budget: { slot: 'budget', confidence: 1, ambiguous: false, explicit_unknown: false, source: 'user' },
+              recap: { chips: [], continue_label: 'Continue' },
+              all_critical_slots_resolved: false,
+              flight_requirements_pending: ['origin', 'date_range'],
+              continue_block_reason: 'Add an origin city and travel dates to unlock flight pricing.',
+            }),
+          },
+          results: [
+            {
+              inventory_type: 'stay',
+              provider: 'expedia',
+              provider_label: 'Expedia',
+              title: 'Hotels in Barcelona',
+              description: 'Open Expedia to see live hotel inventory and current partner pricing.',
+              total_price: 0,
+              currency: 'USD',
+              redirect_url: 'https://example.com/stay',
+              deep_link_label: 'View stays on Expedia',
+              score: 50,
+              price_known: false,
+              price_label: 'Check live rates on Expedia',
+              location_label: 'Barcelona',
+              amenities: ['wifi'],
+              nightly_price: null,
+              check_in: '2026-05-03',
+              check_out: '2026-05-08',
+            },
+          ],
+        }}
+      />
+    )
+
+    expect(screen.getByText(/flight search notice/i)).toBeInTheDocument()
+    expect(screen.getByText(/add an origin city and travel dates to unlock flight pricing/i)).toBeInTheDocument()
+    expect(screen.getByText(/missing prerequisites: origin, date_range/i)).toBeInTheDocument()
+  })
+
+  it('uses structured remediation fields even when warnings are empty', () => {
+    render(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={providerStatuses}
+        response={{
+          search_id: 'search-structured-2',
+          query: 'Flight remediation copy',
+          requested_inventory: ['flight'],
+          applied_filters: {
+            destination: 'Barcelona',
+            origin: null,
+            date_range: null,
+            travelers: { adults: 1, children: 0, infants: 0 },
+            stay_filters: { amenities: [] },
+            flight_filters: { nonstop: false },
+          },
+          provider_status: providerStatuses,
+          warnings: [],
+          clarification_state: {
+            ...({
+              destination: { slot: 'destination', confidence: 1, ambiguous: false, explicit_unknown: false, source: 'user' },
+              timeline: { slot: 'timeline', confidence: 1, ambiguous: false, explicit_unknown: false, source: 'user' },
+              trip_length: { slot: 'trip_length', confidence: 1, ambiguous: false, explicit_unknown: false, source: 'user' },
+              budget: { slot: 'budget', confidence: 1, ambiguous: false, explicit_unknown: false, source: 'user' },
+              recap: { chips: [], continue_label: 'Continue' },
+              all_critical_slots_resolved: false,
+              flight_requirements_pending: ['origin'],
+              continue_block_reason: 'Add your departure airport to continue.',
+            }),
+          },
+          results: [],
+        }}
+      />
+    )
+
+    expect(screen.getByText(/flight search notice/i)).toBeInTheDocument()
+    expect(screen.getByText(/add your departure airport to continue/i)).toBeInTheDocument()
+    expect(screen.getByText(/missing prerequisites: origin/i)).toBeInTheDocument()
+  })
+
+  it('keeps provenance and freshness metadata visible when flight data exists', () => {
+    render(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={providerStatuses}
+        response={{
+          search_id: 'search-structured-3',
+          query: 'Flight metadata visibility',
+          requested_inventory: ['flight'],
+          applied_filters: {
+            destination: 'Barcelona',
+            origin: 'DEN',
+            date_range: { start: '2026-05-03', end: '2026-05-08' },
+            travelers: { adults: 1, children: 0, infants: 0 },
+            stay_filters: { amenities: [] },
+            flight_filters: { nonstop: false },
+          },
+          provider_status: providerStatuses,
+          warnings: [],
+          results: [{ ...normalizedContractFixture, title: 'Metadata flight card' }],
+        }}
+      />
+    )
+
+    expect(screen.getByText(/source: duffel/i)).toBeInTheDocument()
+    expect(screen.getByText(/freshness: provider_quote/i)).toBeInTheDocument()
+  })
+
   it('keeps provider labels visible and preserves API flight ordering', () => {
     render(
       <ResultsDashboard
