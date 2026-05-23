@@ -52,12 +52,12 @@ Deferred beyond this milestone.
 |-------------|-------|--------|
 | AIR-01 | Phase 10 | Completed |
 | AIR-02 | Phase 10 | Completed |
-| AIR-03 | Phase 11 | Pending |
-| AIR-04 | Phase 11 | Pending |
+| AIR-03 | Phase 11 | Completed |
+| AIR-04 | Phase 11 | Completed |
 | AIR-05 | Phase 12 | Pending |
 | AIR-06 | Phase 12 | Pending |
 | AIR-07 | Phase 13 | Pending |
-| AIR-08 | Phase 11 | Pending |
+| AIR-08 | Phase 11 | Completed |
 
 **Coverage:**
 - v1.1 requirements: 8 total
