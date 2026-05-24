@@ -347,6 +347,18 @@ def test_post_search_partial_dual_provider_failure_keeps_available_results():
     payload = response.json()
     assert [item["provider"] for item in payload["results"]] == ["testlive"]
     assert any("Partial Failure flight search unavailable: upstream timeout" == warning for warning in payload["warnings"])
+    assert payload["degraded_state"] == {
+        "active": True,
+        "inventory_types": ["flight"],
+        "degraded_providers": [
+            {
+                "provider": "partialfail",
+                "label": "Partial Failure",
+                "reason": "upstream timeout",
+                "inventory_types": ["flight"],
+            }
+        ],
+    }
     assert any(
         status["provider"] == "partialfail"
         and status["healthy"] is False
@@ -440,6 +452,56 @@ def test_search_handles_follow_up_clarification_turn():
     # INTENT-03 / INTENT-04: follow-up turn progression remains focused and deterministic.
     assert follow_up_payload["clarification_state"]["next_question"]["slot"] == "budget"
     assert follow_up_payload["clarification_state"]["next_question"]["slot"] != "destination"
+
+
+def test_post_search_follow_up_clarification_turn_preserves_resolved_intent_when_provider_is_degraded():
+    search_service.providers = [ConfiguredProvider(), PartialFailureFlightProvider()]
+
+    first_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Warm beach trip in June",
+            "destination": "Honolulu",
+            "origin": "Denver",
+            "date_range": {"start": "2026-06-10", "end": "2026-06-17"},
+            "inventory": ["flight"],
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["degraded_state"]["active"] is True
+    assert first_payload["results"]
+
+    follow_up_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Warm beach trip in June",
+            "inventory": ["flight"],
+            "clarification_state": first_payload["clarification_state"],
+            "clarification_answer": {
+                "slot": "trip_length",
+                "answer_text": "7 days",
+                "explicit_unknown": False,
+            },
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+    assert follow_up_response.status_code == 200
+    follow_up_payload = follow_up_response.json()
+    assert follow_up_payload["applied_filters"]["destination"] == "Honolulu"
+    assert follow_up_payload["applied_filters"]["origin"] == "Denver"
+    assert follow_up_payload["applied_filters"]["date_range"] is not None
+    assert follow_up_payload["results"]
+    assert follow_up_payload["degraded_state"]["active"] is True
 
 
 def test_post_search_returns_deterministic_flight_requirement_guidance_when_continue_is_blocked():

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { ClarificationState } from '@/lib/api'
 import SearchForm from '../SearchForm'
+import ResultsDashboard from '../ResultsDashboard'
 
 function buildClarificationState(
   overrides: Partial<ClarificationState> = {}
@@ -158,6 +159,45 @@ describe('ClarificationFlow', () => {
         destination: 'Lisbon',
         trip_length_days: 7,
         budget_range: expect.objectContaining({ maximum: 2500 }),
+      })
+    )
+  })
+
+  it('submits clarification answers with preserved resolved constraints to keep continuity across degraded turns', () => {
+    const onSearch = jest.fn()
+    render(
+      <SearchForm
+        onSearch={onSearch}
+        clarificationState={buildClarificationState({
+          next_question: {
+            slot: 'trip_length',
+            prompt: 'How many days?',
+          },
+        })}
+        preservedRequest={{
+          destination: 'Lisbon',
+          origin: 'Denver',
+          date_range: { start: '2026-06-01', end: '2026-06-08' },
+          budget_range: { minimum: 1500, maximum: 2500, currency_code: 'USD' },
+        }}
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText(/your answer/i), {
+      target: { value: '7 days' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
+
+    expect(onSearch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: 'Lisbon',
+        origin: 'Denver',
+        date_range: { start: '2026-06-01', end: '2026-06-08' },
+        clarification_answer: {
+          slot: 'trip_length',
+          answer_text: '7 days',
+          explicit_unknown: false,
+        },
       })
     )
   })
@@ -340,5 +380,49 @@ describe('ClarificationFlow', () => {
     expect(
       screen.getByText('Add a travel date range (start and optional end date) to unlock airfare recommendations.')
     ).toBeInTheDocument()
+  })
+
+  it('renders explicit degraded-state reliability guidance from typed response fields', () => {
+    render(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={[]}
+        response={
+          {
+            search_id: 'search-degraded',
+            query: 'Warm beach trip',
+            requested_inventory: ['flight'],
+            applied_filters: {
+              destination: 'Honolulu',
+              origin: 'Denver',
+              date_range: { start: '2026-06-01', end: '2026-06-08' },
+              travelers: { adults: 1, children: 0, infants: 0 },
+              stay_filters: { amenities: [] },
+              flight_filters: { nonstop: false },
+            },
+            provider_status: [],
+            warnings: [],
+            results: [],
+            degraded_state: {
+              active: true,
+              inventory_types: ['flight'],
+              degraded_providers: [
+                {
+                  provider: 'partialfail',
+                  label: 'Partial Failure',
+                  reason: 'upstream timeout',
+                  inventory_types: ['flight'],
+                },
+              ],
+            },
+          } as never
+        }
+      />
+    )
+
+    expect(screen.getByText(/flight reliability degraded/i)).toBeInTheDocument()
+    expect(screen.getByText(/partial failure/i)).toBeInTheDocument()
+    expect(screen.getByText(/upstream timeout/i)).toBeInTheDocument()
   })
 })
