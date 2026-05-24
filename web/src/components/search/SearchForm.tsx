@@ -26,6 +26,11 @@ const DEFAULT_AMENITIES = ['wifi']
 const EMPTY_COPY_HEADING = 'Start with your travel intent'
 const EMPTY_COPY_BODY =
   'Describe where, when, and budget if known. We’ll ask one follow-up at a time to fill missing details.'
+const FLIGHT_REQUIREMENT_GUIDANCE: Record<string, string> = {
+  origin: 'Add your departure origin to unlock airfare recommendations.',
+  date_range: 'Add a travel date range (start and optional end date) to unlock airfare recommendations.',
+  destination: 'Confirm your destination to unlock airfare recommendations.',
+}
 
 function buildBaseRequest(query: string): Omit<
   SearchRequest,
@@ -94,6 +99,11 @@ export default function SearchForm({
   const originRequiredForContinue = continueBlocked && pendingFlightRequirements.includes('origin')
   const dateRangeRequiredForContinue = continueBlocked && pendingFlightRequirements.includes('date_range')
   const isDestinationQuestion = activeQuestion?.slot === 'destination'
+  const pendingRequirementGuidance = pendingFlightRequirements.map(
+    (requirement) =>
+      FLIGHT_REQUIREMENT_GUIDANCE[requirement] ??
+      `Provide ${requirement.replace('_', ' ')} to unlock airfare recommendations.`
+  )
 
   const activeChip = useMemo(
     () => recapChips.find((chip) => chip.slot === editingSlot) ?? null,
@@ -458,9 +468,18 @@ export default function SearchForm({
         {complete && (
           <section className="space-y-3 border-t border-border/80 pt-4">
             {continueBlocked && continueBlockReason && (
-              <p className="text-sm font-medium text-destructive" role="status">
-                {continueBlockReason}
-              </p>
+              <>
+                <p className="text-sm font-medium text-destructive" role="status">
+                  {continueBlockReason}
+                </p>
+                {pendingRequirementGuidance.length > 0 && (
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-sumi/90">
+                    {pendingRequirementGuidance.map((guidance) => (
+                      <li key={guidance}>{guidance}</li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
             {originRequiredForContinue && (
               <form className="space-y-3 rounded-xl border border-primary/20 bg-white p-4" onSubmit={submitOriginRemediation}>
