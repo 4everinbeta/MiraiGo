@@ -158,6 +158,11 @@ export default function ResultsDashboard({
   const recommendationPackages = response?.recommendation_packages ?? []
   const hasSearched = Boolean(response || errorMessage)
   const clarificationState = response?.clarification_state ?? null
+  const degradedState = response?.degraded_state ?? null
+  const hasExplicitDegradedState = Boolean(
+    degradedState?.active && (degradedState.degraded_providers?.length ?? 0) > 0
+  )
+  const degradedProviders = degradedState?.degraded_providers ?? []
   const pendingFlightRequirements = clarificationState?.flight_requirements_pending ?? []
   const continueBlockReason = clarificationState?.continue_block_reason?.trim() || null
   const hasStructuredFlightRemediation =
@@ -185,10 +190,19 @@ export default function ResultsDashboard({
           'Continue once those details are filled to fetch flight offers.',
         ],
       }
-    : hasInventoryEmptyWarning
+    : hasExplicitDegradedState
       ? {
           explanation:
-            'Providers returned no flight offers for this route and date range, so airfare provenance details are unavailable.',
+            'One or more flight providers are currently degraded, so only available provider data can be shown.',
+          steps: [
+            'Review degraded provider details in the reliability notice.',
+            'Retry shortly to refresh missing provider results.',
+          ],
+        }
+    : hasInventoryEmptyWarning
+    ? {
+        explanation:
+          'Providers returned no flight offers for this route and date range, so airfare provenance details are unavailable.',
           steps: [
             'Try nearby airports or wider date ranges.',
             'Relax nonstop, time, or budget filters.',
@@ -212,6 +226,11 @@ export default function ResultsDashboard({
     ...(continueBlockReason ? [continueBlockReason] : []),
     ...(pendingFlightRequirements.length > 0
       ? [`Missing prerequisites: ${pendingFlightRequirements.join(', ')}`]
+      : []),
+    ...(hasExplicitDegradedState
+      ? degradedProviders.map(
+          (provider) => `${provider.label} degraded (${provider.reason})`
+        )
       : []),
     ...flightWarnings,
   ]
@@ -269,6 +288,21 @@ export default function ResultsDashboard({
           <CardContent aria-live="polite" className="space-y-2 pt-0 text-sm text-sumi/80">
             {flightNoticeMessages.map((message) => (
               <p key={message}>{message}</p>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {!isLoading && response && hasExplicitDegradedState ? (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-amber-900">Flight reliability degraded</CardTitle>
+          </CardHeader>
+          <CardContent aria-live="polite" className="space-y-2 pt-0 text-sm text-amber-900">
+            {degradedProviders.map((provider) => (
+              <p key={`${provider.provider}-${provider.reason}`}>
+                {provider.label}: {provider.reason}
+              </p>
             ))}
           </CardContent>
         </Card>

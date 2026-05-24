@@ -422,7 +422,6 @@ describe('ClarificationFlow', () => {
     )
 
     expect(screen.getByText(/flight reliability degraded/i)).toBeInTheDocument()
-    expect(screen.getByText(/partial failure/i)).toBeInTheDocument()
-    expect(screen.getByText(/upstream timeout/i)).toBeInTheDocument()
+    expect(screen.getByText(/partial failure: upstream timeout/i)).toBeInTheDocument()
   })
 })

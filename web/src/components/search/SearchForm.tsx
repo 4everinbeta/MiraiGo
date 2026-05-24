@@ -123,12 +123,19 @@ export default function SearchForm({
     setAnswerText('')
   }
 
+  const buildTurnPayload = (): SearchRequest => ({
+    ...buildBaseRequest(query),
+    ...preservedRequest,
+    query: query.trim() || preservedRequest?.query || undefined,
+    clarification_state: clarificationState ?? preservedRequest?.clarification_state ?? undefined,
+  })
+
   const handleAnswerSubmit = (event: React.FormEvent) => {
     event.preventDefault()
     if (!activeQuestion || !canSubmitAnswer || isSubmitting) return
 
     onSearch({
-      ...buildBaseRequest(query),
+      ...buildTurnPayload(),
       clarification_answer: {
         slot: activeQuestion.slot,
         answer_text: answerText.trim(),
@@ -141,7 +148,7 @@ export default function SearchForm({
   const markAnswerUnknown = () => {
     if (!activeQuestion || isSubmitting) return
     onSearch({
-      ...buildBaseRequest(query),
+      ...buildTurnPayload(),
       clarification_answer: {
         slot: activeQuestion.slot,
         explicit_unknown: true,
@@ -163,7 +170,7 @@ export default function SearchForm({
     if (!selectedSuggestions.length || isSubmitting) return
     const destinationCandidates = selectedSuggestions.map((item) => item.label)
     onSearch({
-      ...buildBaseRequest(query),
+      ...buildTurnPayload(),
       constraint_updates: {
         destination: destinationCandidates.length === 1 ? destinationCandidates[0] : undefined,
         destination_candidates: destinationCandidates,
@@ -185,7 +192,7 @@ export default function SearchForm({
     if (!activeChip || !editedValue.trim() || isSubmitting) return
 
     onSearch({
-      ...buildBaseRequest(query),
+      ...buildTurnPayload(),
       recap_edit: {
         slot: activeChip.slot,
         edited_value: editedValue.trim(),
@@ -201,7 +208,7 @@ export default function SearchForm({
     if (!activeChip || isSubmitting) return
 
     onSearch({
-      ...buildBaseRequest(query),
+      ...buildTurnPayload(),
       recap_edit: {
         slot: activeChip.slot,
         explicit_unknown: true,
@@ -214,18 +221,12 @@ export default function SearchForm({
 
   const continueToRecommendations = () => {
     if (!complete || continueBlocked || isSubmitting) return
-    onSearch({
-      ...buildBaseRequest(query),
-      ...preservedRequest,
-      query: query.trim() || preservedRequest?.query || undefined,
-    })
+    onSearch(buildTurnPayload())
   }
 
   const submitContinueRemediation = (constraint_updates: SearchRequest['constraint_updates']) => {
     onSearch({
-      ...buildBaseRequest(query),
-      ...preservedRequest,
-      query: query.trim() || preservedRequest?.query || undefined,
+      ...buildTurnPayload(),
       constraint_updates,
     })
   }

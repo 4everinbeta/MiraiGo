@@ -133,6 +133,8 @@ export interface ClarificationState {
   next_question?: ClarificationQuestion | null
   recap: ClarificationRecap
   all_critical_slots_resolved: boolean
+  resolved_origin?: string | null
+  resolved_date_range?: SearchDateRange | null
   flight_requirements_pending: string[]
   continue_block_reason?: string | null
   loop_guard_counter?: number
@@ -198,6 +200,19 @@ export interface ProviderStatus {
   healthy: boolean
   inventory_types: InventoryType[]
   reason?: string | null
+}
+
+export interface DegradedProvider {
+  provider: string
+  label: string
+  reason: string
+  inventory_types: InventoryType[]
+}
+
+export interface DegradedState {
+  active: boolean
+  inventory_types: InventoryType[]
+  degraded_providers: DegradedProvider[]
 }
 
 export type ConversionStatus = 'native' | 'converted' | 'unavailable'
@@ -285,6 +300,7 @@ export interface SearchResponse {
     flight_filters: FlightFilters
   }
   provider_status: ProviderStatus[]
+  degraded_state?: DegradedState
   warnings: string[]
   results: SearchResult[]
   clarification_state?: ClarificationState | null
