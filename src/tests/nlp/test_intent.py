@@ -73,6 +73,15 @@ def test_extract_intent_does_not_treat_budget_phrase_as_destination():
     assert intent["normalized_budget"]["category"] in {"mid-range", "budget"}
 
 
+def test_extract_intent_keeps_route_destination_for_airfare_prompt_with_loose_timeline():
+    query = "Need airfare from Denver to Lisbon around early summer"
+    intent = extract_intent(query)
+
+    assert intent["location"] == "Lisbon"
+    assert intent["normalized_timeline"] is not None
+    assert intent["normalized_timeline"]["source_text"] == "early summer"
+
+
 def test_extract_party_size_family_of_three():
     travelers = extract_party_size("Looking for a family of three trip")
     assert travelers is not None

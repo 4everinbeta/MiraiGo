@@ -580,3 +580,30 @@ def test_post_search_constraint_updates_date_range_clears_continue_block_reason(
     follow_up_state = follow_up_response.json()["clarification_state"]
     assert follow_up_state["flight_requirements_pending"] == []
     assert follow_up_state["continue_block_reason"] is None
+
+
+def test_post_search_airfare_natural_prompt_captures_route_and_timeline_without_silent_empty_results():
+    search_service.providers = [ConfiguredProvider()]
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Need airfare from Denver to Lisbon around early summer",
+            "inventory": ["flight"],
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["results"]
+    assert payload["results"][0]["inventory_type"] == "flight"
+    assert payload["applied_filters"]["origin"] == "Denver"
+    assert payload["applied_filters"]["destination"] == "Lisbon"
+    assert payload["applied_filters"]["date_range"] is not None
+    assert payload["clarification_state"]["flight_requirements_pending"] == []
+    assert payload["clarification_state"]["continue_block_reason"] is None

@@ -527,3 +527,19 @@ def test_constraint_updates_origin_and_date_range_share_same_unblock_path():
     assert date_follow_up_state.continue_block_reason == (
         "Continue needs origin before flight recommendations can load."
     )
+
+
+def test_resolve_request_applies_airfare_route_and_loose_timeline_hints_before_flight_gate():
+    service = SearchService()
+    request = SearchRequest(
+        query="Need airfare from Denver to Lisbon around early summer",
+        inventory=["flight"],
+    )
+
+    resolved, _, clarification_state = service._resolve_request(request)
+
+    assert resolved.origin == "Denver"
+    assert resolved.destination == "Lisbon"
+    assert resolved.date_range is not None
+    assert clarification_state.flight_requirements_pending == []
+    assert clarification_state.continue_block_reason is None

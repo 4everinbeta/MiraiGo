@@ -320,4 +320,25 @@ describe('ClarificationFlow', () => {
     expect(screen.getByRole('button', { name: /submit origin/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /submit date range/i })).toBeInTheDocument()
   })
+
+  it('shows explicit airfare remediation guidance mapped to each pending requirement key', () => {
+    render(
+      <SearchForm
+        onSearch={jest.fn()}
+        clarificationState={buildClarificationState({
+          next_question: null,
+          all_critical_slots_resolved: true,
+          flight_requirements_pending: ['origin', 'date_range'],
+          continue_block_reason: 'Continue needs origin and date_range before flight recommendations can load.',
+        })}
+      />
+    )
+
+    expect(
+      screen.getByText('Add your departure origin to unlock airfare recommendations.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Add a travel date range (start and optional end date) to unlock airfare recommendations.')
+    ).toBeInTheDocument()
+  })
 })
