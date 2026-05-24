@@ -189,7 +189,7 @@ describe('ResultsDashboard', () => {
     )
 
     expect(screen.getByText(/flight search notice/i)).toBeInTheDocument()
-    expect(screen.getByText(/returned no flight offers/i)).toBeInTheDocument()
+    expect(screen.getByText(/duffel returned no flight offers/i)).toBeInTheDocument()
     expect(
       screen.getByText(
         /providers returned no flight offers for this route and date range, so airfare provenance details are unavailable/i

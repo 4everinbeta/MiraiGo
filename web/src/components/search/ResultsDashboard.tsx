@@ -164,6 +164,50 @@ export default function ResultsDashboard({
     pendingFlightRequirements.length > 0 || Boolean(continueBlockReason)
   const flightWarnings = response?.warnings.filter((warning) => warning.toLowerCase().includes('flight')) ?? []
   const generalWarnings = response?.warnings.filter((warning) => !warning.toLowerCase().includes('flight')) ?? []
+  const lowerFlightWarnings = flightWarnings.map((warning) => warning.toLowerCase())
+  const hasInventoryEmptyWarning = lowerFlightWarnings.some((warning) =>
+    warning.includes('returned no flight offers')
+  )
+  const hasProviderDegradedWarning = lowerFlightWarnings.some((warning) =>
+    warning.includes('flight search unavailable')
+  )
+  const hasUnavailableFlightProvider = providerList.some(
+    (provider) =>
+      provider.inventory_types.includes('flight') &&
+      (!provider.configured || !provider.healthy)
+  )
+  const noFlightGuidance = hasStructuredFlightRemediation
+    ? {
+        explanation:
+          'Flight prerequisites are still missing, so live airfare provenance details are not available yet.',
+        steps: [
+          'Add the missing flight prerequisites listed above.',
+          'Continue once those details are filled to fetch flight offers.',
+        ],
+      }
+    : hasInventoryEmptyWarning
+      ? {
+          explanation:
+            'Providers returned no flight offers for this route and date range, so airfare provenance details are unavailable.',
+          steps: [
+            'Try nearby airports or wider date ranges.',
+            'Relax nonstop, time, or budget filters.',
+          ],
+        }
+      : hasProviderDegradedWarning || hasUnavailableFlightProvider
+        ? {
+            explanation:
+              'Live flight search is temporarily unavailable, so airfare provenance details cannot be shown right now.',
+            steps: [
+              'Retry this search in a few minutes.',
+              'Continue with stays now and rerun flights later.',
+            ],
+          }
+        : {
+            explanation:
+              'No live results matched the current request, so airfare provenance details are not available for this search yet.',
+            steps: ['Try broadening dates, budget, or provider credentials.'],
+          }
   const flightNoticeMessages = [
     ...(continueBlockReason ? [continueBlockReason] : []),
     ...(pendingFlightRequirements.length > 0
@@ -329,11 +373,14 @@ export default function ResultsDashboard({
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                {hasStructuredFlightRemediation
-                  ? 'No flight results returned yet. Resolve the flight prerequisites above and continue your search.'
-                  : 'No flight results returned.'}
-              </p>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>{noFlightGuidance.explanation}</p>
+                <ul className="list-disc space-y-1 pl-5">
+                  {noFlightGuidance.steps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </section>
         </div>
