@@ -18,8 +18,10 @@
 
 ### Reliability & Continuity
 
-- [ ] **AIR-05**: User can still receive flight results when one provider is degraded, with explicit degraded-state signaling.
-- [ ] **AIR-06**: User can continue clarification/edit/continue flows without losing previously resolved intent while airfare updates are applied.
+- [x] **AIR-05
+**: User can still receive flight results when one provider is degraded, with explicit degraded-state signaling.
+- [x] **AIR-06
+**: User can continue clarification/edit/continue flows without losing previously resolved intent while airfare updates are applied.
 
 ### Ranking & Contract Integrity
 
@@ -54,8 +56,8 @@ Deferred beyond this milestone.
 | AIR-02 | Phase 10 | Completed |
 | AIR-03 | Phase 11 | Completed |
 | AIR-04 | Phase 11 | Completed |
-| AIR-05 | Phase 12 | Pending |
-| AIR-06 | Phase 12 | Pending |
+| AIR-05 | Phase 12 | Completed |
+| AIR-06 | Phase 12 | Completed |
 | AIR-07 | Phase 13 | Pending |
 | AIR-08 | Phase 11 | Completed |
 

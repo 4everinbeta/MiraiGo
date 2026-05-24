@@ -11,7 +11,7 @@
 
 - [x] **Phase 10: Dual-Provider Realtime Airfare Retrieval** - Users can receive live airfare offers from Amadeus and Duffel for their current travel constraints.
 - [x] **Phase 11: Airfare Normalization, Provenance, and Contracts** - Users can compare cross-provider airfare results with consistent fields and metadata.
-- [ ] **Phase 12: Degraded-Mode Reliability and Clarification Continuity** - Users still get useful airfare results and keep resolved intent when a provider degrades.
+- [x] **Phase 12: Degraded-Mode Reliability and Clarification Continuity** - Users still get useful airfare results and keep resolved intent when a provider degrades.
 - [ ] **Phase 13: Ranking with Live Airfare Context** - Destination ranking and budget-fit use normalized realtime airfare totals.
 
 ## Phase Details
@@ -59,7 +59,7 @@ Plans:
   3. User can answer/edit/continue clarification turns without losing previously resolved intent while airfare updates are applied.
 **Plans**: 1 plan
 Plans:
-- [ ] 12-01-PLAN.md — Implement degraded-mode reliability and clarification continuity contracts for AIR-05/AIR-06.
+- [x] 12-01-PLAN.md — Implement degraded-mode reliability and clarification continuity contracts for AIR-05/AIR-06.
 **UI hint**: yes
 
 ### Phase 13: Ranking with Live Airfare Context
@@ -78,5 +78,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 10. Dual-Provider Realtime Airfare Retrieval | 3/3 | Complete | 2026-04-26 |
 | 11. Airfare Normalization, Provenance, and Contracts | 9/9 | Complete    | 2026-05-24 |
-| 12. Degraded-Mode Reliability and Clarification Continuity | 0/1 | Not started | - |
+| 12. Degraded-Mode Reliability and Clarification Continuity | 1/1 | Complete | 2026-05-24 |
 | 13. Ranking with Live Airfare Context | 0/0 | Not started | - |
