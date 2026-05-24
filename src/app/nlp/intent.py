@@ -136,6 +136,21 @@ LOCATION_TRAILING_STOP_TOKENS = LOCATION_STOP_TOKENS | {
     "from", "between", "and", "on", "next", "this", "my", "to", "in", "near", "at",
 }
 TO_VERB_TOKENS = {"find", "go", "travel", "plan", "book", "visit", "stay"}
+ROUTE_CONTEXT_STOP_WORDS = (
+    "for",
+    "in",
+    "on",
+    "with",
+    "between",
+    "during",
+    "around",
+    "next",
+    "this",
+    "maybe",
+    "sometime",
+    "leaving",
+    "departing",
+)
 NON_DESTINATION_TOKENS = {
     "budget",
     "cheap",
@@ -486,6 +501,16 @@ def _normalize_location_candidate(value: str) -> str:
     return " ".join(token.capitalize() for token in normalized.split())
 
 
+def _trim_location_fragment(value: str) -> str:
+    trimmed = re.sub(
+        rf"\s+\b(?:{'|'.join(ROUTE_CONTEXT_STOP_WORDS)})\b.*$",
+        "",
+        value,
+        flags=re.IGNORECASE,
+    )
+    return trimmed.strip(" ,.")
+
+
 def _is_destination_candidate(value: str) -> bool:
     candidate = value.strip(" ,.")
     lowered = candidate.lower()
@@ -504,6 +529,10 @@ def _is_destination_candidate(value: str) -> bool:
 
 
 def _extract_destination(query: str, query_lower: str) -> str | None:
+    route_hints = extract_route_hints(query)
+    if route_hints["destination"]:
+        return route_hints["destination"]
+
     route_match = re.search(
         r"\bfrom\b\s+([A-Za-z][A-Za-z\s.-]*?)\s+\bto\b\s+([A-Za-z][A-Za-z\s.-]*?)(?:\s+\b(?:for|in|on|with|between|during|and|con)\b|$)",
         query,
@@ -560,7 +589,8 @@ def _extract_destination(query: str, query_lower: str) -> str | None:
 def extract_intent(query: str) -> Dict[str, Any]:
     query_lower = _normalize_query(query)
     normalized_query = _strip_accents(query)
-    location = _extract_destination(normalized_query, query_lower)
+    route_hints = extract_route_hints(normalized_query)
+    location = route_hints["destination"] or _extract_destination(normalized_query, query_lower)
 
     # Qualities Extraction
     found_qualities = _extract_qualities(query_lower)
@@ -657,8 +687,53 @@ def extract_intent(query: str) -> Dict[str, Any]:
             or weather_metadata["confidence"] < GLOBAL_CONFIDENCE_THRESHOLD
         ),
         "slot_metadata": slot_metadata,
+        "origin_hint": route_hints["origin"],
         "original_query": query,
     }
+
+
+def extract_route_hints(query: str) -> dict[str, str | None]:
+    route_match = re.search(
+        r"\bfrom\b\s+([A-Za-z][A-Za-z\s.'-]*?)\s+\bto\b\s+([A-Za-z][A-Za-z\s.'-]*?)(?:$|\s+\b(?:for|in|on|with|between|during|around|next|this|maybe|sometime|leaving|departing)\b)",
+        query,
+        re.IGNORECASE,
+    )
+    if route_match:
+        origin_candidate = _trim_location_fragment(route_match.group(1))
+        destination_candidate = _trim_location_fragment(route_match.group(2))
+        origin = (
+            _normalize_location_candidate(origin_candidate)
+            if _is_destination_candidate(origin_candidate)
+            else None
+        )
+        destination = (
+            _normalize_location_candidate(destination_candidate)
+            if _is_destination_candidate(destination_candidate)
+            else None
+        )
+        return {"origin": origin, "destination": destination}
+
+    reverse_route_match = re.search(
+        r"\bto\b\s+([A-Za-z][A-Za-z\s.'-]*?)\s+\bfrom\b\s+([A-Za-z][A-Za-z\s.'-]*?)(?:$|\s+\b(?:for|in|on|with|between|during|around|next|this|maybe|sometime|leaving|departing)\b)",
+        query,
+        re.IGNORECASE,
+    )
+    if reverse_route_match:
+        destination_candidate = _trim_location_fragment(reverse_route_match.group(1))
+        origin_candidate = _trim_location_fragment(reverse_route_match.group(2))
+        origin = (
+            _normalize_location_candidate(origin_candidate)
+            if _is_destination_candidate(origin_candidate)
+            else None
+        )
+        destination = (
+            _normalize_location_candidate(destination_candidate)
+            if _is_destination_candidate(destination_candidate)
+            else None
+        )
+        return {"origin": origin, "destination": destination}
+
+    return {"origin": None, "destination": None}
 
 
 # ---------------------------------------------------------------------------

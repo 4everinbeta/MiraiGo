@@ -17,7 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.app.core.config import settings
 from src.app.db.redis import redis_client
 from src.app.models.search import ProviderRun, SearchRun
-from src.app.nlp.intent import extract_budget_range, extract_intent
+from src.app.nlp.intent import extract_budget_range, extract_intent, extract_route_hints
 from src.app.providers import get_provider_registry
 from src.app.providers.base import ProviderError, TravelProvider
 from src.app.schemas.search import (
@@ -178,6 +178,7 @@ class SearchService:
         warnings: list[str] = []
         request = self._merge_request_with_clarification_state(request)
         intent = extract_intent(request.query) if request.query else {}
+        request = self._apply_intent_signals(request, intent)
         slot_states = self._build_slot_states(request, intent)
         history = list(request.clarification_state.history) if request.clarification_state else []
 
@@ -187,16 +188,6 @@ class SearchService:
             history=history,
         )
         warnings.extend(turn_warnings)
-
-        if (
-            InventoryType.FLIGHT in request.inventory
-            and not request.origin
-            and request.query
-            and "from" in request.query.lower()
-        ):
-            origin = self._extract_origin_hint(request.query)
-            if origin:
-                request = request.model_copy(update={"origin": origin})
 
         if slot_states[ClarificationSlot.DESTINATION].confidence < GLOBAL_CONFIDENCE_THRESHOLD:
             warnings.append("Destination is still unclear; please confirm to improve results.")
@@ -252,6 +243,42 @@ class SearchService:
             }
         )
         return request.model_copy(update={"clarification_state": clarification_state}), warnings, clarification_state
+
+    def _apply_intent_signals(self, request: SearchRequest, intent: dict) -> SearchRequest:
+        if not request.query:
+            return request
+
+        updates: dict = {}
+        if not request.destination and intent.get("location"):
+            updates["destination"] = intent["location"]
+
+        if not request.origin:
+            origin_hint = intent.get("origin_hint")
+            if isinstance(origin_hint, str) and origin_hint.strip():
+                updates["origin"] = origin_hint.strip()
+            else:
+                extracted_origin = self._extract_origin_hint(request.query)
+                if extracted_origin:
+                    updates["origin"] = extracted_origin
+
+        if not request.date_range:
+            parsed_date_range = None
+            if intent.get("date_range"):
+                parsed_date_range = self._parse_date_range(intent["date_range"])
+            if not parsed_date_range:
+                normalized_timeline = intent.get("normalized_timeline")
+                if isinstance(normalized_timeline, dict):
+                    window = normalized_timeline.get("window") or {}
+                    parsed_date_range = self._parse_timeline_window(
+                        window.get("start"),
+                        window.get("end"),
+                    )
+            if parsed_date_range:
+                updates["date_range"] = parsed_date_range
+
+        if not updates:
+            return request
+        return request.model_copy(update=updates)
 
     def _should_block_for_clarification(self, clarification_state: ClarificationState) -> bool:
         destination = clarification_state.destination
@@ -971,18 +998,39 @@ class SearchService:
         )
 
     def _extract_origin_hint(self, query: str) -> str | None:
+        route_hints = extract_route_hints(query)
+        if route_hints.get("origin"):
+            return route_hints["origin"]
+
         lowered = query.lower()
         if "from " not in lowered:
             return None
         fragment = query[lowered.index("from ") + 5 :]
         lowered_fragment = fragment.lower()
         cut_at = len(fragment)
-        for separator in (" to ", " on ", " leaving ", " for ", " with ", " in "):
+        for separator in (
+            " to ",
+            " on ",
+            " leaving ",
+            " for ",
+            " with ",
+            " in ",
+            " around ",
+            " during ",
+            " next ",
+            " this ",
+            " maybe ",
+            " sometime ",
+        ):
             index = lowered_fragment.find(separator)
             if index != -1:
                 cut_at = min(cut_at, index)
         origin = fragment[:cut_at].strip(" ,.")
-        return origin or None
+        if not origin:
+            return None
+        if len(origin) == 3 and origin.isalpha():
+            return origin.upper()
+        return " ".join(token.capitalize() for token in origin.split())
 
     async def _execute_provider(
         self, provider: TravelProvider, request: SearchRequest, inventory_type: InventoryType
