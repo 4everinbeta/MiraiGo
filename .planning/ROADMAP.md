@@ -35,7 +35,7 @@
   1. User can view comparable normalized airfare fields (price, currency, stops, duration) across Amadeus and Duffel offers.
   2. User can view freshness and provenance metadata for each airfare offer.
   3. User sees stable airfare rendering/behavior across refreshes and turns because airfare-context fields are deterministic.
-**Plans**: 8 plans
+**Plans**: 9 plans
 Plans:
 - [x] 11-01-PLAN.md — Define backend normalized/provenance airfare contracts and deterministic helper utilities.
 - [x] 11-02-PLAN.md — Wire provider/service normalization with deterministic API payload behavior.
@@ -44,7 +44,8 @@ Plans:
 - [x] 11-05-PLAN.md — Add explicit flight-metadata absence remediation in results experience.
 - [x] 11-06-PLAN.md — Close origin-entry dead-end by adding explicit origin capture control and contract-aligned turn updates.
 - [x] 11-07-PLAN.md — Close blocked Continue date-range dead-end with direct remediation controls and deterministic unblock regressions.
-- [ ] 11-08-PLAN.md — Close no-flight empty-state clarity gap with deterministic cause-specific remediation guidance.
+- [x] 11-08-PLAN.md — Close no-flight empty-state clarity gap with deterministic cause-specific remediation guidance.
+- [ ] 11-09-PLAN.md — Close airfare intent-capture/progression gap for natural prompts with tests-first deterministic remediation flow.
 **UI hint**: yes
 
 ### Phase 12: Degraded-Mode Reliability and Clarification Continuity
@@ -73,6 +74,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 10. Dual-Provider Realtime Airfare Retrieval | 3/3 | Complete | 2026-04-26 |
-| 11. Airfare Normalization, Provenance, and Contracts | 7/8 | In progress | - |
+| 11. Airfare Normalization, Provenance, and Contracts | 8/9 | In progress | - |
 | 12. Degraded-Mode Reliability and Clarification Continuity | 0/0 | Not started | - |
 | 13. Ranking with Live Airfare Context | 0/0 | Not started | - |
