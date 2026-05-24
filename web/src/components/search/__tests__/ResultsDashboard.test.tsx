@@ -163,7 +163,7 @@ describe('ResultsDashboard', () => {
     expect(screen.getByTestId('loading-state')).toBeInTheDocument()
   })
 
-  it('shows a dedicated flight notice panel when flight warnings are present', () => {
+  it('shows inventory-empty no-flight guidance when providers return no offers', () => {
     render(
       <ResultsDashboard
         errorMessage={null}
@@ -190,9 +190,16 @@ describe('ResultsDashboard', () => {
 
     expect(screen.getByText(/flight search notice/i)).toBeInTheDocument()
     expect(screen.getByText(/returned no flight offers/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /providers returned no flight offers for this route and date range, so airfare provenance details are unavailable/i
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText(/try nearby airports or wider date ranges/i)).toBeInTheDocument()
+    expect(screen.getByText(/relax nonstop, time, or budget filters/i)).toBeInTheDocument()
   })
 
-  it('announces degraded flight warnings via aria-live polite region', () => {
+  it('shows provider-degraded no-flight guidance when flight search is unavailable', () => {
     render(
       <ResultsDashboard
         errorMessage={null}
@@ -219,6 +226,13 @@ describe('ResultsDashboard', () => {
 
     const warningMessage = screen.getByText(/flight search unavailable/i)
     expect(warningMessage.closest('[aria-live="polite"]')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /live flight search is temporarily unavailable, so airfare provenance details cannot be shown right now/i
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText(/retry this search in a few minutes/i)).toBeInTheDocument()
+    expect(screen.getByText(/continue with stays now and rerun flights later/i)).toBeInTheDocument()
   })
 
   it('renders remediation callout for stay-only responses when flight prerequisites are pending', () => {
@@ -323,6 +337,14 @@ describe('ResultsDashboard', () => {
     expect(screen.getByText(/flight search notice/i)).toBeInTheDocument()
     expect(screen.getByText(/add your departure airport to continue/i)).toBeInTheDocument()
     expect(screen.getByText(/missing prerequisites: origin/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /flight prerequisites are still missing, so live airfare provenance details are not available yet/i
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText(/add the missing flight prerequisites listed above/i)).toBeInTheDocument()
+    expect(screen.getByText(/continue once those details are filled to fetch flight offers/i)).toBeInTheDocument()
+    expect(screen.queryByText(/^no flight results returned\.$/i)).not.toBeInTheDocument()
   })
 
   it('keeps provenance and freshness metadata visible when flight data exists', () => {
