@@ -29,6 +29,8 @@ from src.app.schemas.search import (
     ClarificationSlotState,
     ClarificationState,
     ConstraintUpdates,
+    DegradedProvider,
+    DegradedState,
     FlightSearchResult,
     InventoryType,
     ProviderStatus,
@@ -109,6 +111,7 @@ class SearchService:
                 requested_inventory=resolved_request.inventory,
                 applied_filters=AppliedFilters.from_request(resolved_request),
                 provider_status=statuses,
+                degraded_state=self._build_degraded_state(prefetch_executions),
                 warnings=self._dedupe(warnings),
                 results=[],
                 clarification_state=clarification_state,
@@ -165,6 +168,7 @@ class SearchService:
             requested_inventory=resolved_request.inventory,
             applied_filters=AppliedFilters.from_request(resolved_request),
             provider_status=statuses,
+            degraded_state=self._build_degraded_state(all_executions),
             warnings=self._dedupe(warnings),
             results=ranked_results,
             clarification_state=clarification_state,
@@ -222,6 +226,8 @@ class SearchService:
             slot_states,
             history=history,
             weather_state=slot_states.get(ClarificationSlot.WEATHER),
+            resolved_origin=request.origin,
+            resolved_date_range=request.date_range,
             flight_requirements_pending=flight_requirements_pending,
             continue_block_reason=build_continue_block_reason(flight_requirements_pending),
         )
@@ -542,13 +548,17 @@ class SearchService:
             return request
 
         updates: dict = {}
+        if not request.origin and state.resolved_origin:
+            updates["origin"] = state.resolved_origin
         if not request.destination and state.destination.value_label:
             updates["destination"] = state.destination.value_label
         if not request.trip_length_days and state.trip_length.value_label:
             trip_length = self._parse_trip_length_answer(state.trip_length.value_label)
             if trip_length:
                 updates["trip_length_days"] = trip_length
-        if not request.date_range and state.timeline.value_label:
+        if not request.date_range and state.resolved_date_range:
+            updates["date_range"] = state.resolved_date_range
+        elif not request.date_range and state.timeline.value_label:
             parsed_range = self._parse_timeline_answer(state.timeline.value_label)
             if parsed_range:
                 updates["date_range"] = parsed_range
@@ -1173,6 +1183,39 @@ class SearchService:
                     f"{execution.provider.display_name} returned no flight offers for the selected route and dates."
                 )
         return warnings
+
+    def _build_degraded_state(self, executions: list[ProviderExecution]) -> DegradedState:
+        degraded_by_provider: dict[str, DegradedProvider] = {}
+        inventory_types: list[InventoryType] = []
+        for execution in executions:
+            if not execution.error_message:
+                continue
+            if execution.inventory_type not in inventory_types:
+                inventory_types.append(execution.inventory_type)
+            provider_key = execution.provider.provider_name
+            existing = degraded_by_provider.get(provider_key)
+            provider_inventory = (
+                list(existing.inventory_types)
+                if existing
+                else []
+            )
+            if execution.inventory_type not in provider_inventory:
+                provider_inventory.append(execution.inventory_type)
+            degraded_by_provider[provider_key] = DegradedProvider(
+                provider=provider_key,
+                label=execution.provider.display_name,
+                reason=execution.error_message,
+                inventory_types=provider_inventory,
+            )
+        degraded_providers = sorted(
+            degraded_by_provider.values(),
+            key=lambda provider: provider.provider,
+        )
+        return DegradedState(
+            active=bool(degraded_providers),
+            inventory_types=inventory_types,
+            degraded_providers=degraded_providers,
+        )
 
     def _apply_execution_status(
         self, statuses: list[ProviderStatus], executions: list[ProviderExecution]

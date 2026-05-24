@@ -14,6 +14,7 @@ from src.app.schemas.search import (
     DestinationSuggestion,
     DestinationSuggestionKind,
     DestinationSuggestionSource,
+    SearchDateRange,
     SearchRequest,
 )
 
@@ -255,6 +256,8 @@ def build_clarification_state(
     slot_states: dict[ClarificationSlot, ClarificationSlotState],
     history: list[ClarificationHistoryEntry] | None = None,
     weather_state: ClarificationSlotState | None = None,
+    resolved_origin: str | None = None,
+    resolved_date_range: SearchDateRange | None = None,
     flight_requirements_pending: list[str] | None = None,
     continue_block_reason: str | None = None,
 ) -> ClarificationState:
@@ -269,6 +272,8 @@ def build_clarification_state(
         next_question=next_question,
         recap=build_recap(slot_states),
         all_critical_slots_resolved=resolved,
+        resolved_origin=resolved_origin,
+        resolved_date_range=resolved_date_range,
         flight_requirements_pending=flight_requirements_pending or [],
         continue_block_reason=continue_block_reason,
         history=history or [],

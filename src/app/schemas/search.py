@@ -129,6 +129,8 @@ class ClarificationState(BaseModel):
     next_question: ClarificationQuestion | None = None
     recap: ClarificationRecap = Field(default_factory=ClarificationRecap)
     all_critical_slots_resolved: bool = False
+    resolved_origin: str | None = None
+    resolved_date_range: SearchDateRange | None = None
     flight_requirements_pending: list[str] = Field(default_factory=list)
     continue_block_reason: str | None = None
     history: list["ClarificationHistoryEntry"] = Field(default_factory=list)
@@ -331,6 +333,19 @@ class ProviderStatus(BaseModel):
     reason: str | None = None
 
 
+class DegradedProvider(BaseModel):
+    provider: str
+    label: str
+    reason: str
+    inventory_types: list[InventoryType] = Field(default_factory=list)
+
+
+class DegradedState(BaseModel):
+    active: bool = False
+    inventory_types: list[InventoryType] = Field(default_factory=list)
+    degraded_providers: list[DegradedProvider] = Field(default_factory=list)
+
+
 class BaseSearchResult(BaseModel):
     provider: str
     provider_label: str
@@ -425,6 +440,7 @@ class SearchResponse(BaseModel):
     requested_inventory: list[InventoryType]
     applied_filters: AppliedFilters
     provider_status: list[ProviderStatus]
+    degraded_state: DegradedState = Field(default_factory=DegradedState)
     warnings: list[str] = Field(default_factory=list)
     results: list[SearchResult] = Field(default_factory=list)
     clarification_state: ClarificationState | None = None

@@ -500,7 +500,8 @@ def test_post_search_follow_up_clarification_turn_preserves_resolved_intent_when
     assert follow_up_payload["applied_filters"]["destination"] == "Honolulu"
     assert follow_up_payload["applied_filters"]["origin"] == "Denver"
     assert follow_up_payload["applied_filters"]["date_range"] is not None
-    assert follow_up_payload["results"]
+    assert follow_up_payload["results"] == []
+    assert "Flight results will appear after clarification updates are confirmed." in follow_up_payload["warnings"]
     assert follow_up_payload["degraded_state"]["active"] is True
 
 
