@@ -293,6 +293,25 @@ export interface SearchResponse {
   lodging_options?: LodgingOptionsGroup | null
 }
 
+export interface OrchestratorTurnRequest {
+  session_id: string
+  message: string
+}
+
+export type OrchestratorResponseType = 'questions' | 'ideas' | 'packages' | 'itineraries'
+
+export interface OrchestratorTurnResponse {
+  session_id: string
+  response_type: OrchestratorResponseType | string
+  markdown: string
+  open_questions: string[]
+  candidate_destinations: Array<Record<string, unknown>>
+  packages: Array<Record<string, unknown>>
+  itineraries: Array<Record<string, unknown>>
+  disclaimers: string[]
+  executed_agents: string[]
+}
+
 export type ItineraryEstimateConfidence = 'low' | 'medium' | 'high'
 
 export interface ItineraryCostEstimate {
@@ -398,6 +417,15 @@ export async function proposeItinerary(
 
 export async function priceItinerary(payload: ItineraryPriceRequest): Promise<ItineraryPriceResponse> {
   return request<ItineraryPriceResponse>('/itinerary/price', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function orchestratorTurn(
+  payload: OrchestratorTurnRequest
+): Promise<OrchestratorTurnResponse> {
+  return request<OrchestratorTurnResponse>('/orchestrator/turn', {
     method: 'POST',
     body: JSON.stringify(payload),
   })

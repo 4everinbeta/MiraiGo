@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     AMADEUS_TOKEN_SAFETY_BUFFER_SECONDS: int = 60
     AMADEUS_TOKEN_CACHE_KEY: str = "providers:amadeus:oauth-token"
     ENABLE_LLM_SUGGESTIONS: bool = False
+    GROQ_API_KEY: str | None = None
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
     model_config = SettingsConfigDict(
         case_sensitive=True,

@@ -18,6 +18,7 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY docker/api-entrypoint.sh /app/docker/api-entrypoint.sh
 COPY src ./src
+COPY state ./state
 
 RUN chmod +x /app/docker/api-entrypoint.sh
 
