@@ -35,7 +35,7 @@
   1. User can view comparable normalized airfare fields (price, currency, stops, duration) across Amadeus and Duffel offers.
   2. User can view freshness and provenance metadata for each airfare offer.
   3. User sees stable airfare rendering/behavior across refreshes and turns because airfare-context fields are deterministic.
-**Plans**: 9 plans
+**Plans**: 10 plans
 Plans:
 - [x] 11-01-PLAN.md — Define backend normalized/provenance airfare contracts and deterministic helper utilities.
 - [x] 11-02-PLAN.md — Wire provider/service normalization with deterministic API payload behavior.
@@ -45,7 +45,8 @@ Plans:
 - [x] 11-06-PLAN.md — Close origin-entry dead-end by adding explicit origin capture control and contract-aligned turn updates.
 - [x] 11-07-PLAN.md — Close blocked Continue date-range dead-end with direct remediation controls and deterministic unblock regressions.
 - [x] 11-08-PLAN.md — Close no-flight empty-state clarity gap with deterministic cause-specific remediation guidance.
-- [ ] 11-09-PLAN.md — Close airfare intent-capture/progression gap for natural prompts with tests-first deterministic remediation flow.
+- [x] 11-09-PLAN.md — Close airfare intent-capture/progression gap for natural prompts with tests-first deterministic remediation flow.
+- [ ] 11-10-PLAN.md — Close low-detail airfare prompt burden with minimum-detail clarification progression and typed remediation sequencing.
 **UI hint**: yes
 
 ### Phase 12: Degraded-Mode Reliability and Clarification Continuity
@@ -56,7 +57,9 @@ Plans:
   1. If one provider is degraded, user still receives flight results from available sources.
   2. When degraded mode is active, user sees explicit degraded-state signaling in results.
   3. User can answer/edit/continue clarification turns without losing previously resolved intent while airfare updates are applied.
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 12-01-PLAN.md — Implement degraded-mode reliability and clarification continuity contracts for AIR-05/AIR-06.
 **UI hint**: yes
 
 ### Phase 13: Ranking with Live Airfare Context
@@ -74,6 +77,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 10. Dual-Provider Realtime Airfare Retrieval | 3/3 | Complete | 2026-04-26 |
-| 11. Airfare Normalization, Provenance, and Contracts | 8/9 | In progress | - |
-| 12. Degraded-Mode Reliability and Clarification Continuity | 0/0 | Not started | - |
+| 11. Airfare Normalization, Provenance, and Contracts | 9/9 | Complete    | 2026-05-24 |
+| 12. Degraded-Mode Reliability and Clarification Continuity | 0/1 | Not started | - |
 | 13. Ranking with Live Airfare Context | 0/0 | Not started | - |
