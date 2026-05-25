@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import OrchestratorDashboard from '@/components/search/OrchestratorDashboard'
+import ResultsDashboard from '@/components/search/ResultsDashboard'
 import SearchForm from '@/components/search/SearchForm'
 import {
   fetchProviderStatuses,
   orchestratorTurn,
+  type ClarificationState,
   type OrchestratorTurnResponse,
   type ProviderStatus,
   type SearchRequest,
+  type SearchResponse,
 } from '@/lib/api'
 
 const SESSION_STORAGE_KEY = 'miraigo.orchestrator.session'
@@ -54,6 +57,8 @@ function buildTurnMessage(request: SearchRequest): string {
 export default function Home() {
   const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([])
   const [response, setResponse] = useState<OrchestratorTurnResponse | null>(null)
+  const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null)
+  const [clarificationState, setClarificationState] = useState<ClarificationState | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [sessionId, setSessionId] = useState<string>('')
@@ -84,14 +89,29 @@ export default function Home() {
     if (!sessionId) return
     setIsSubmitting(true)
     setErrorMessage(null)
+
+    // Attach preserved clarification_state from prior turn for continuity
+    const searchPayload: SearchRequest = clarificationState
+      ? { ...request, clarification_state: clarificationState }
+      : request
+
     try {
       const turn = await orchestratorTurn({
         session_id: sessionId,
         message: buildTurnMessage(request),
+        search_payload: searchPayload,
       })
       setResponse(turn)
+      if (turn.search_response) {
+        setSearchResponse(turn.search_response)
+        // Persist clarification_state for follow-up turns
+        if (turn.search_response.clarification_state) {
+          setClarificationState(turn.search_response.clarification_state)
+        }
+      }
     } catch {
       setResponse(null)
+      setSearchResponse(null)
       setErrorMessage('The orchestrator request failed. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -118,7 +138,7 @@ export default function Home() {
         </header>
 
         <SearchForm
-          clarificationState={null}
+          clarificationState={clarificationState}
           isSubmitting={isSubmitting}
           preservedRequest={null}
           onSearch={handleSearch}
@@ -130,6 +150,14 @@ export default function Home() {
           providerStatuses={providerStatuses}
           response={response}
         />
+
+        {searchResponse && (
+          <ResultsDashboard
+            response={searchResponse}
+            providerStatuses={providerStatuses}
+            isLoading={isSubmitting}
+          />
+        )}
       </div>
     </main>
   )

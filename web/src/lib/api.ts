@@ -312,6 +312,9 @@ export interface SearchResponse {
 export interface OrchestratorTurnRequest {
   session_id: string
   message: string
+  /** Optional typed search payload. When included, the backend executes the
+   *  search path and returns typed search reliability metadata in search_response. */
+  search_payload?: SearchRequest | null
 }
 
 export type OrchestratorResponseType = 'questions' | 'ideas' | 'packages' | 'itineraries'
@@ -326,6 +329,9 @@ export interface OrchestratorTurnResponse {
   itineraries: Array<Record<string, unknown>>
   disclaimers: string[]
   executed_agents: string[]
+  /** Typed search result including degraded_state and clarification_state.
+   *  Only present when search_payload was included in the request. */
+  search_response?: SearchResponse | null
 }
 
 export type ItineraryEstimateConfidence = 'low' | 'medium' | 'high'
