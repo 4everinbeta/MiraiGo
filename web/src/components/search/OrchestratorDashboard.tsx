@@ -62,11 +62,7 @@ export default function OrchestratorDashboard({
         </CardContent>
       </Card>
 
-      {errorMessage ? (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="pt-4 text-sm text-destructive">{errorMessage}</CardContent>
-        </Card>
-      ) : null}
+      {/* Error messages are now fully unified inside the premium SearchForm Chat Hub */}
 
       {isLoading ? (
         <Card className="border-primary/10 bg-white/80">
@@ -77,71 +73,7 @@ export default function OrchestratorDashboard({
         </Card>
       ) : null}
 
-      {!isLoading && response ? (
-        <div className="space-y-4">
-          <Card className="border-primary/10 bg-white/90">
-            <CardHeader className="space-y-2 pb-2">
-              <CardTitle className="text-lg text-sumi">
-                Orchestrator response · {response.response_type}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Agents: {response.executed_agents.join(' → ')}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-0">
-              <div className="rounded-xl border border-border/70 bg-background p-4">
-                <p className="whitespace-pre-wrap text-sm leading-6 text-sumi">{response.markdown}</p>
-              </div>
-
-              {response.open_questions.length > 0 ? (
-                <div>
-                  <p className="text-sm font-medium text-sumi">Open questions</p>
-                  <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    {response.open_questions.map((question) => (
-                      <li key={question}>{question}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {response.candidate_destinations.length > 0 ? (
-                <div>
-                  <p className="text-sm font-medium text-sumi">Destination ideas</p>
-                  <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    {response.candidate_destinations.map((candidate, index) => (
-                      <li key={`${renderDestinationLabel(candidate)}-${index}`}>
-                        {renderDestinationLabel(candidate)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {response.packages.length > 0 ? (
-                <div>
-                  <p className="text-sm font-medium text-sumi">Packages</p>
-                  <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    {response.packages.map((pkg, index) => (
-                      <li key={`${renderPackageLabel(pkg)}-${index}`}>{renderPackageLabel(pkg)}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {response.disclaimers.length > 0 ? (
-                <div>
-                  <p className="text-sm font-medium text-sumi">Disclaimers</p>
-                  <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    {response.disclaimers.map((disclaimer) => (
-                      <li key={disclaimer}>{disclaimer}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
+      {/* Conversational responses are now fully unified inside the premium SearchForm Chat Hub */}
 
       {!isLoading && !errorMessage && hasSearched && !response ? (
         <Card className="border-border/80 bg-white/80">

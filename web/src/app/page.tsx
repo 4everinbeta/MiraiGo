@@ -54,6 +54,18 @@ function buildTurnMessage(request: SearchRequest): string {
   return parts.join('\n').trim() || 'Continue planning with prior context.'
 }
 
+export interface ChatMessage {
+  id: string
+  sender: 'user' | 'assistant'
+  text: string
+  timestamp: Date
+  response_type?: string
+  candidate_destinations?: Array<Record<string, unknown>>
+  packages?: Array<Record<string, unknown>>
+  disclaimers?: string[]
+  executed_agents?: string[]
+}
+
 export default function Home() {
   const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([])
   const [response, setResponse] = useState<OrchestratorTurnResponse | null>(null)
@@ -62,6 +74,15 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [sessionId, setSessionId] = useState<string>('')
+  const [assistantPromptOverride, setAssistantPromptOverride] = useState<string | null>(null)
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
+    {
+      id: 'welcome',
+      sender: 'assistant',
+      text: 'Hello! I am MiraiGo, your travel discovery companion. Describe where, when, and budget if known. We’ll ask one follow-up at a time to fill missing details.',
+      timestamp: new Date(),
+    },
+  ])
 
   useEffect(() => {
     setSessionId(ensureSessionId())
@@ -89,6 +110,43 @@ export default function Home() {
     if (!sessionId) return
     setIsSubmitting(true)
     setErrorMessage(null)
+    setAssistantPromptOverride(null)
+
+    // Formulate a clean textual display of the user's action
+    let userMsgText = request.query?.trim()
+    if (request.clarification_answer?.answer_text?.trim()) {
+      userMsgText = request.clarification_answer.answer_text.trim()
+    } else if (request.recap_edit?.edited_value?.trim()) {
+      userMsgText = `Update ${request.recap_edit.slot}: ${request.recap_edit.edited_value.trim()}`
+    } else if (request.constraint_updates) {
+      const updates = Object.entries(request.constraint_updates)
+        .filter(([, val]) => val != null)
+        .map(([k, v]) => {
+          if (typeof v === 'object' && v !== null && 'start' in v) {
+            const start = (v as { start: string }).start
+            const end = (v as { end?: string }).end
+            return `dates: ${start}${end ? ' to ' + end : ''}`
+          }
+          return `${k}: ${JSON.stringify(v)}`
+        })
+      if (updates.length) {
+        userMsgText = `Constraint updates: ${updates.join(', ')}`
+      }
+    }
+
+    if (!userMsgText) {
+      userMsgText = 'Continuing planning with prior context.'
+    }
+
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        id: `user-${Date.now()}`,
+        sender: 'user',
+        text: userMsgText!,
+        timestamp: new Date(),
+      },
+    ])
 
     // Attach preserved clarification_state from prior turn for continuity
     const searchPayload: SearchRequest = clarificationState
@@ -109,10 +167,34 @@ export default function Home() {
           setClarificationState(turn.search_response.clarification_state)
         }
       }
+
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          id: `assistant-${Date.now()}`,
+          sender: 'assistant',
+          text: turn.markdown,
+          timestamp: new Date(),
+          response_type: turn.response_type,
+          candidate_destinations: turn.candidate_destinations,
+          packages: turn.packages,
+          disclaimers: turn.disclaimers,
+          executed_agents: turn.executed_agents,
+        },
+      ])
     } catch {
       setResponse(null)
       setSearchResponse(null)
       setErrorMessage('The orchestrator request failed. Please try again.')
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          id: `assistant-error-${Date.now()}`,
+          sender: 'assistant',
+          text: 'The orchestrator request failed. Please try again.',
+          timestamp: new Date(),
+        },
+      ])
     } finally {
       setIsSubmitting(false)
     }
@@ -138,10 +220,25 @@ export default function Home() {
         </header>
 
         <SearchForm
+          assistantPromptOverride={assistantPromptOverride}
           clarificationState={clarificationState}
           isSubmitting={isSubmitting}
-          preservedRequest={null}
           onSearch={handleSearch}
+          preservedRequest={
+            searchResponse?.applied_filters
+              ? {
+                  destination: searchResponse.applied_filters.destination || undefined,
+                  origin: searchResponse.applied_filters.origin || undefined,
+                  date_range: searchResponse.applied_filters.date_range || undefined,
+                  trip_length_days: searchResponse.applied_filters.trip_length_days || undefined,
+                  budget_range: searchResponse.applied_filters.budget_range || undefined,
+                  travelers: searchResponse.applied_filters.travelers,
+                  stay_filters: searchResponse.applied_filters.stay_filters,
+                  flight_filters: searchResponse.applied_filters.flight_filters,
+                }
+              : null
+          }
+          chatHistory={chatHistory}
         />
 
         <OrchestratorDashboard
@@ -156,9 +253,11 @@ export default function Home() {
             response={searchResponse}
             providerStatuses={providerStatuses}
             isLoading={isSubmitting}
+            onNoFlightFollowUp={(prompt) => setAssistantPromptOverride(prompt)}
           />
         )}
       </div>
     </main>
   )
 }
+
