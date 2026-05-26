@@ -5,12 +5,12 @@ This plan executes the TDD development, client-side implementation, and visual p
 ## Phase 1: Component & Core UI Logic
 
 * **TDD - Sorting Stays (Red/Green/Refactor)**
-  * - [ ] Task: Create failing Jest tests in `web/src/components/search/__tests__/ResultsDashboard.test.tsx` asserting that the stays list re-ranks correctly when score, absolute price, or star ratings sort parameters are set.
-  * - [ ] Task: Implement stays sorting dropdown controls and the corresponding client-side array sorting logic in `web/src/components/search/ResultsDashboard.tsx`. Verify that Jest tests pass.
+  * - [x] Task: Create failing Jest tests in `web/src/components/search/__tests__/ResultsDashboard.test.tsx` asserting that the stays list re-ranks correctly when score, absolute price, or star ratings sort parameters are set. [e3f38d0]
+  * - [x] Task: Implement stays sorting dropdown controls and the corresponding client-side array sorting logic in `web/src/components/search/ResultsDashboard.tsx`. Verify that Jest tests pass. [e3f38d0]
 
 * **TDD - Dynamic Filtering (Red/Green/Refactor)**
-  * - [ ] Task: Create failing Jest tests in `web/src/components/search/__tests__/ResultsDashboard.test.tsx` asserting that stays are correctly filtered out by max price threshold, rating star thresholds (e.g. 3+ or 4+ stars), and amenities arrays (e.g. WiFi and Pool).
-  * - [ ] Task: Implement the filter control panel (price slider, ratings chips, and amenities checkboxes) and the multi-filter client-side array matching logic in `web/src/components/search/ResultsDashboard.tsx`. Verify that Jest tests pass.
+  * - [x] Task: Create failing Jest tests in `web/src/components/search/__tests__/ResultsDashboard.test.tsx` asserting that stays are correctly filtered out by max price threshold, rating star thresholds (e.g. 3+ or 4+ stars), and amenities arrays (e.g. WiFi and Pool). [e3f38d0]
+  * - [x] Task: Implement the filter control panel (price slider, ratings chips, and amenities checkboxes) and the multi-filter client-side array matching logic in `web/src/components/search/ResultsDashboard.tsx`. Verify that Jest tests pass. [e3f38d0]
 
 * **Phase Verification**
   * - [ ] Task: Conductor - User Manual Verification 'Phase 1: Component & Core UI Logic' (Protocol in workflow.md)
