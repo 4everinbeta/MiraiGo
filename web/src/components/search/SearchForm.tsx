@@ -326,7 +326,7 @@ export default function SearchForm({
     onSearch(buildTurnPayload())
   }
 
-  const promptLabel = showAssistantFollowUp ? (activeQuestion?.prompt ?? remediationQuestion?.prompt ?? 'Travel prompt') : 'Travel prompt'
+  const promptLabel = showAssistantFollowUp ? 'Your answer' : 'Travel prompt'
   const promptPlaceholder = assistantFollowUpHelper || 'I want a warm beach trip in June with a moderate budget.'
   const promptAriaLabel = showAssistantFollowUp ? 'Your answer' : 'Travel prompt'
   const buttonLabel = isSubmitting
@@ -384,10 +384,7 @@ export default function SearchForm({
                     A
                   </div>
                 )}
-                <div
-                  data-testid={isAssistant && isLast && showAssistantFollowUp ? 'assistant-thread' : undefined}
-                  className="space-y-3 w-full"
-                >
+                <div className="space-y-3 w-full">
                   <div
                     className={`rounded-2xl px-4 py-3 text-base shadow-sm ${
                       isAssistant
@@ -397,36 +394,9 @@ export default function SearchForm({
                   >
                     {isAssistant ? (
                       <div className="space-y-4">
-                        {/* Heading for tests & visually clear prompts */}
-                        {isLast && activeQuestion && (
-                          <h2 className="text-[20px] font-semibold leading-[1.2] text-sumi border-b border-primary/5 pb-2">
-                            {activeQuestion.prompt}
-                          </h2>
-                        )}
-                        {isLast && remediationQuestion && (
-                          <h2 className="text-[20px] font-semibold leading-[1.2] text-sumi border-b border-primary/5 pb-2">
-                            {remediationQuestion.prompt}
-                          </h2>
-                        )}
-                        
                         <p className="whitespace-pre-wrap text-sm leading-6">
                           {msg.text}
                         </p>
-
-                        {isLast && continueBlocked && continueBlockReason && (
-                          <div className="space-y-2 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-                            <p className="font-semibold text-sm text-destructive" role="status">
-                              {continueBlockReason}
-                            </p>
-                            {pendingRequirementGuidance.length > 0 && (
-                              <ul className="list-disc pl-4 space-y-1 text-sumi/90">
-                                {pendingRequirementGuidance.map((guidance) => (
-                                  <li key={guidance}>{guidance}</li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        )}
 
                         {/* Interactive Destination Picker */}
                         {isLast && isDestinationQuestion && destinationSuggestions.length > 0 && (
@@ -522,6 +492,37 @@ export default function SearchForm({
         {/* Input area */}
         <div className="border-t border-primary/10 bg-white p-4 shrink-0">
           <form className="space-y-3" onSubmit={handleSubmit}>
+            {showAssistantFollowUp && (
+              <div className="mb-4 space-y-2 p-4 bg-sakura/5 rounded-2xl border border-primary/10 animate-fade-in" data-testid="assistant-thread">
+                {activeQuestion && (
+                  <h2 className="text-[18px] font-bold leading-snug text-sumi">
+                    {activeQuestion.prompt}
+                  </h2>
+                )}
+                {remediationQuestion && (
+                  <h2 className="text-[18px] font-bold leading-snug text-sumi">
+                    {remediationQuestion.prompt}
+                  </h2>
+                )}
+                {assistantFollowUpHelper ? (
+                  <p className="text-sm text-muted-foreground">
+                    {assistantFollowUpHelper}
+                  </p>
+                ) : null}
+                {continueBlocked && continueBlockReason ? (
+                  <p className="text-sm font-semibold text-destructive" role="status">
+                    {continueBlockReason}
+                  </p>
+                ) : null}
+                {continueBlocked && pendingRequirementGuidance.length > 0 && (
+                  <ul className="list-disc pl-5 space-y-1 text-sm text-sumi/90">
+                    {pendingRequirementGuidance.map((guidance) => (
+                      <li key={guidance}>{guidance}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             <label htmlFor="travel-prompt" className="block text-sm font-normal leading-[1.4] text-sumi mb-2">
               {promptLabel}
             </label>
