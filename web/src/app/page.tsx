@@ -168,12 +168,32 @@ export default function Home() {
         }
       }
 
+      const clarState = turn.search_response?.clarification_state
+      const nextQ = clarState?.next_question
+      const pendingReqs = clarState?.flight_requirements_pending ?? []
+      const completeVal = clarState?.all_critical_slots_resolved
+      const continueBlockedVal = completeVal && pendingReqs.length > 0
+      const remediationReqVal = continueBlockedVal ? pendingReqs[0] ?? null : null
+
+      let assistantMsgText = ''
+      if (nextQ) {
+        assistantMsgText = `${nextQ.prompt}${nextQ.helper_text ? '\n\n' + nextQ.helper_text : ''}`
+      } else if (remediationReqVal === 'origin') {
+        assistantMsgText = `What airport or city are you flying from?\n\nReply with city or airport code, for example Denver or DEN.`
+      } else if (remediationReqVal === 'date_range') {
+        assistantMsgText = `What travel dates should I use?\n\nReply YYYY-MM-DD or YYYY-MM-DD to YYYY-MM-DD.`
+      } else if (turn.markdown && !turn.markdown.includes('## Quick Questions') && !turn.markdown.includes('## Packages & Live Pricing')) {
+        assistantMsgText = turn.markdown
+      } else {
+        assistantMsgText = `I've analyzed your travel preferences and ranked the best destinations for you! See the suggestions and pricing packages below.`
+      }
+
       setChatHistory((prev) => [
         ...prev,
         {
           id: `assistant-${Date.now()}`,
           sender: 'assistant',
-          text: turn.markdown,
+          text: assistantMsgText,
           timestamp: new Date(),
           response_type: turn.response_type,
           candidate_destinations: turn.candidate_destinations,
