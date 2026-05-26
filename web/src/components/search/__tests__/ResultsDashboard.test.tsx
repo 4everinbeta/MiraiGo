@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import ResultsDashboard from '../ResultsDashboard'
 import type { FlightSearchResult } from '@/lib/api'
 
@@ -347,6 +347,58 @@ describe('ResultsDashboard', () => {
     expect(screen.queryByText(/^no flight results returned\.$/i)).not.toBeInTheDocument()
   })
 
+  it('prefers typed no-flight guidance over warning-derived fallback copy', () => {
+    const onNoFlightFollowUp = jest.fn()
+    render(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={providerStatuses}
+        onNoFlightFollowUp={onNoFlightFollowUp}
+        response={{
+          search_id: 'search-structured-typed',
+          query: 'Flight metadata guidance',
+          requested_inventory: ['flight'],
+          applied_filters: {
+            destination: 'Barcelona',
+            origin: 'DEN',
+            date_range: { start: '2026-05-03', end: '2026-05-08' },
+            travelers: { adults: 1, children: 0, infants: 0 },
+            stay_filters: { amenities: [] },
+            flight_filters: { nonstop: false },
+          },
+          provider_status: providerStatuses,
+          warnings: ['Duffel returned no flight offers for the selected route and dates.'],
+          no_flight_guidance: {
+            code: 'no_offers',
+            explanation:
+              'Typed guidance: no live offers were returned for this route/date pair.',
+            actions: ['Try alternate nearby airports.', 'Widen your travel date window.'],
+            provenance_unavailable: true,
+            freshness_unavailable: true,
+            fallback_attempts: ['primary_query', 'widen_date_window'],
+            follow_up_prompt: 'Tell me your preferred alternate dates and I will retry.',
+          },
+          results: [],
+        }}
+      />
+    )
+
+    expect(screen.getByText(/typed guidance: no live offers were returned/i)).toBeInTheDocument()
+    expect(screen.getByText(/try alternate nearby airports/i)).toBeInTheDocument()
+    expect(screen.getByText(/widen your travel date window/i)).toBeInTheDocument()
+    expect(screen.getByText(/fallbacks attempted: primary_query, widen_date_window/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /continue in assistant chat/i }))
+    expect(onNoFlightFollowUp).toHaveBeenCalledWith(
+      'Tell me your preferred alternate dates and I will retry.'
+    )
+    expect(
+      screen.queryByText(
+        /providers returned no flight offers for this route and date range, so airfare provenance details are unavailable/i
+      )
+    ).not.toBeInTheDocument()
+  })
+
   it('keeps provenance and freshness metadata visible when flight data exists', () => {
     render(
       <ResultsDashboard
@@ -595,4 +647,199 @@ describe('ResultsDashboard', () => {
     expect(screen.getByText(/den to bcn • 1 stop • pt10h45m/i)).toBeInTheDocument()
     expect(screen.getByText(/fallback: using legacy airfare fields/i)).toBeInTheDocument()
   })
+
+  it('supports sorting stays by score, absolute price, and star rating client-side', () => {
+    const staysResponse = {
+      search_id: 'search-sorting',
+      query: 'stays sorting',
+      requested_inventory: ['stay'] as const,
+      applied_filters: {
+        destination: 'Denver',
+        origin: null,
+        date_range: null,
+        travelers: { adults: 1, children: 0, infants: 0 },
+        stay_filters: { amenities: [] },
+        flight_filters: { nonstop: false },
+      },
+      provider_status: providerStatuses,
+      warnings: [],
+      results: [
+        {
+          inventory_type: 'stay' as const,
+          provider: 'booking',
+          provider_label: 'Booking.com',
+          title: 'Stay A (Score 80, Price 300, Stars 4.5)',
+          description: 'Option A description',
+          total_price: 300,
+          currency: 'USD',
+          score: 80,
+          price_known: true,
+          location_label: 'Denver',
+          rating: '4.5',
+          amenities: ['wifi'],
+        },
+        {
+          inventory_type: 'stay' as const,
+          provider: 'expedia',
+          provider_label: 'Expedia',
+          title: 'Stay B (Score 95, Price 150, Stars 4.9)',
+          description: 'Option B description',
+          total_price: 150,
+          currency: 'USD',
+          score: 95,
+          price_known: true,
+          location_label: 'Denver',
+          rating: '4.9',
+          amenities: ['wifi', 'pool'],
+        },
+        {
+          inventory_type: 'stay' as const,
+          provider: 'booking',
+          provider_label: 'Booking.com',
+          title: 'Stay C (Score 70, Price 500, Stars 3.8)',
+          description: 'Option C description',
+          total_price: 500,
+          currency: 'USD',
+          score: 70,
+          price_known: true,
+          location_label: 'Denver',
+          rating: '3.8',
+          amenities: ['gym'],
+        },
+      ],
+    }
+
+    render(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={providerStatuses}
+        response={staysResponse}
+      />
+    )
+
+    // Default sorting is by Score descending: Stay B -> Stay A -> Stay C
+    let cardB = screen.getByText(/Stay B/i)
+    let cardA = screen.getByText(/Stay A/i)
+    let cardC = screen.getByText(/Stay C/i)
+    expect(cardB.compareDocumentPosition(cardA) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(cardA.compareDocumentPosition(cardC) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // Sort by Price ascending: Stay B ($150) -> Stay A ($300) -> Stay C ($500)
+    fireEvent.change(screen.getByTestId('stays-sort-select'), { target: { value: 'price' } })
+    cardB = screen.getByText(/Stay B/i)
+    cardA = screen.getByText(/Stay A/i)
+    cardC = screen.getByText(/Stay C/i)
+    expect(cardB.compareDocumentPosition(cardA) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(cardA.compareDocumentPosition(cardC) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // Sort by Star Rating descending: Stay B (4.9) -> Stay A (4.5) -> Stay C (3.8)
+    fireEvent.change(screen.getByTestId('stays-sort-select'), { target: { value: 'rating' } })
+    cardB = screen.getByText(/Stay B/i)
+    cardA = screen.getByText(/Stay A/i)
+    cardC = screen.getByText(/Stay C/i)
+    expect(cardB.compareDocumentPosition(cardA) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(cardA.compareDocumentPosition(cardC) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('supports filtering stays by max price, amenities, and ratings threshold client-side', () => {
+    const staysResponse = {
+      search_id: 'search-filtering',
+      query: 'stays filtering',
+      requested_inventory: ['stay'] as const,
+      applied_filters: {
+        destination: 'Denver',
+        origin: null,
+        date_range: null,
+        travelers: { adults: 1, children: 0, infants: 0 },
+        stay_filters: { amenities: [] },
+        flight_filters: { nonstop: false },
+      },
+      provider_status: providerStatuses,
+      warnings: [],
+      results: [
+        {
+          inventory_type: 'stay' as const,
+          provider: 'booking',
+          provider_label: 'Booking.com',
+          title: 'Stay A (Score 80, Price 300, Stars 4.5)',
+          description: 'Option A description',
+          total_price: 300,
+          currency: 'USD',
+          score: 80,
+          price_known: true,
+          location_label: 'Denver',
+          rating: '4.5',
+          amenities: ['wifi'],
+        },
+        {
+          inventory_type: 'stay' as const,
+          provider: 'expedia',
+          provider_label: 'Expedia',
+          title: 'Stay B (Score 95, Price 150, Stars 4.9)',
+          description: 'Option B description',
+          total_price: 150,
+          currency: 'USD',
+          score: 95,
+          price_known: true,
+          location_label: 'Denver',
+          rating: '4.9',
+          amenities: ['wifi', 'pool'],
+        },
+        {
+          inventory_type: 'stay' as const,
+          provider: 'booking',
+          provider_label: 'Booking.com',
+          title: 'Stay C (Score 70, Price 500, Stars 3.8)',
+          description: 'Option C description',
+          total_price: 500,
+          currency: 'USD',
+          score: 70,
+          price_known: true,
+          location_label: 'Denver',
+          rating: '3.8',
+          amenities: ['gym'],
+        },
+      ],
+    }
+
+    render(
+      <ResultsDashboard
+        errorMessage={null}
+        isLoading={false}
+        providerStatuses={providerStatuses}
+        response={staysResponse}
+      />
+    )
+
+    // Initial check: all 3 stays are rendered
+    expect(screen.getByText(/Stay A/i)).toBeInTheDocument()
+    expect(screen.getByText(/Stay B/i)).toBeInTheDocument()
+    expect(screen.getByText(/Stay C/i)).toBeInTheDocument()
+
+    // Filter by max price threshold: set slider to 350 (should hide Stay C $500)
+    fireEvent.change(screen.getByTestId('stays-price-slider'), { target: { value: '350' } })
+    expect(screen.getByText(/Stay A/i)).toBeInTheDocument()
+    expect(screen.getByText(/Stay B/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Stay C/i)).not.toBeInTheDocument()
+
+    // Reset price slider
+    fireEvent.change(screen.getByTestId('stays-price-slider'), { target: { value: '500' } })
+
+    // Filter by amenity: check 'pool' (only Stay B has pool)
+    fireEvent.click(screen.getByTestId('amenity-pool-checkbox'))
+    expect(screen.queryByText(/Stay A/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/Stay B/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Stay C/i)).not.toBeInTheDocument()
+
+    // Uncheck pool
+    fireEvent.click(screen.getByTestId('amenity-pool-checkbox'))
+
+    // Filter by Rating: select 4.0+ stars (should hide Stay C which has 3.8 stars)
+    fireEvent.click(screen.getByRole('button', { name: /4\.0\+ Stars/i }))
+    expect(screen.getByText(/Stay A/i)).toBeInTheDocument()
+    expect(screen.getByText(/Stay B/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Stay C/i)).not.toBeInTheDocument()
+  })
 })
+
