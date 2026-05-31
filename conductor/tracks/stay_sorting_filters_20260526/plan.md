@@ -2,7 +2,7 @@
 
 This plan executes the TDD development, client-side implementation, and visual polish of the stays sorting and filter controls.
 
-## Phase 1: Component & Core UI Logic
+## Phase 1: Component & Core UI Logic [checkpoint: 296c5d2]
 
 * **TDD - Sorting Stays (Red/Green/Refactor)**
   * - [x] Task: Create failing Jest tests in `web/src/components/search/__tests__/ResultsDashboard.test.tsx` asserting that the stays list re-ranks correctly when score, absolute price, or star ratings sort parameters are set. [e3f38d0]
