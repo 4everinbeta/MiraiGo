@@ -13,7 +13,7 @@ This plan executes the TDD development, client-side implementation, and visual p
   * - [x] Task: Implement the filter control panel (price slider, ratings chips, and amenities checkboxes) and the multi-filter client-side array matching logic in `web/src/components/search/ResultsDashboard.tsx`. Verify that Jest tests pass. [e3f38d0]
 
 * **Phase Verification**
-  * - [ ] Task: Conductor - User Manual Verification 'Phase 1: Component & Core UI Logic' (Protocol in workflow.md)
+  * - [x] Task: Conductor - User Manual Verification 'Phase 1: Component & Core UI Logic' (Protocol in workflow.md) [c8f4a3c]
 
 ---
 
