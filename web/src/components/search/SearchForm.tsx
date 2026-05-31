@@ -26,7 +26,6 @@ interface SearchFormProps {
 }
 
 const DEFAULT_AMENITIES = ['wifi']
-const EMPTY_COPY_HEADING = 'Start with your travel intent'
 const EMPTY_COPY_BODY =
   'Describe where, when, and budget if known. We’ll ask one follow-up at a time to fill missing details.'
 const FLIGHT_REQUIREMENT_GUIDANCE: Record<string, string> = {

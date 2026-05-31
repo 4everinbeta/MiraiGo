@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ProviderStatus, SearchResponse, SearchResult } from '@/lib/api'
 import {
@@ -213,13 +213,11 @@ export default function ResultsDashboard({
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([])
   const [ratingThreshold, setRatingThreshold] = useState<number>(0)
 
-  useEffect(() => {
-    if (stayResults.length > 0) {
-      const activePrices = stayResults.map((r) => r.total_price).filter((p) => p > 0)
-      const computedMax = activePrices.length > 0 ? Math.max(...activePrices) : 1000
-      setMaxPrice(computedMax)
-    }
-  }, [response])
+  const [prevResponse, setPrevResponse] = useState(response)
+  if (response !== prevResponse) {
+    setPrevResponse(response)
+    setMaxPrice(computedMaxPrice)
+  }
 
   const filteredStays = stayResults
     .filter((stay) => {
@@ -585,7 +583,7 @@ export default function ResultsDashboard({
                     id="sort-select"
                     data-testid="stays-sort-select"
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
+                    onChange={(e) => setSortBy(e.target.value as 'score' | 'price' | 'rating')}
                     className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-sumi focus:border-primary focus:outline-none cursor-pointer"
                   >
                     <option value="score">Recommendation Score</option>
