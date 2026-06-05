@@ -2,7 +2,7 @@
 
 This plan executes the robust integration, data mapping refinement, and error handling for the Duffel flights provider.
 
-## Phase 1: Complete Duffel Data Mapping
+## Phase 1: Complete Duffel Data Mapping [checkpoint: a383471]
 
 * **TDD - Response Fields Mapping**
   * - [x] Task: Write failing pytest unit/integration tests in `src/tests/providers/test_duffel.py` verifying that all expected fields (`price_minor`, `currency_code`, `duration_minutes`, `stops_count`) are parsed from the Duffel response and mapped to `FlightSearchResult`. [419d187]
