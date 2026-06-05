@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import relationship
 from src.app.models.base import Base
+from src.app.models.user_session import SearchHistory, UserPreference
 
 class User(Base):
     __tablename__ = "user"
@@ -12,5 +13,5 @@ class User(Base):
     is_active = Column(Boolean(), default=True)
     is_superuser = Column(Boolean(), default=False)
     
-    search_histories = relationship("SearchHistory", back_populates="user")
-    preference = relationship("UserPreference", back_populates="user", uselist=False)
+    search_histories = relationship("SearchHistory", back_populates="user", cascade="all, delete-orphan")
+    preference = relationship("UserPreference", back_populates="user", uselist=False, cascade="all, delete-orphan")

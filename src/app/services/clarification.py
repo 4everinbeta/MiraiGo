@@ -113,6 +113,36 @@ def select_next_question(
     return None
 
 
+def prioritize_flight_prerequisites_for_discovery(
+    *,
+    slot_states: dict[ClarificationSlot, ClarificationSlotState],
+    flight_requirements_pending: list[str],
+) -> None:
+    """
+    For flight-intent turns, prioritize minimum airfare prerequisites (origin/date_range)
+    over optional trip-length and budget collection.
+    """
+    if not flight_requirements_pending:
+        return
+    if slot_requires_follow_up(slot_states[ClarificationSlot.DESTINATION]):
+        return
+    if slot_requires_follow_up(slot_states[ClarificationSlot.TIMELINE]):
+        return
+
+    for slot in (ClarificationSlot.TRIP_LENGTH, ClarificationSlot.BUDGET):
+        state = slot_states[slot]
+        if state.value_label or state.explicit_unknown:
+            continue
+        slot_states[slot] = state.model_copy(
+            update={
+                "value_label": "I don't know",
+                "explicit_unknown": True,
+                "ambiguous": False,
+                "confidence": 1.0,
+            }
+        )
+
+
 def build_recap(slot_states: dict[ClarificationSlot, ClarificationSlotState]) -> ClarificationRecap:
     chips: list[ClarificationRecapChip] = []
     for slot in CRITICAL_SLOT_ORDER:

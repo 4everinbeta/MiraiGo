@@ -28,8 +28,8 @@ test('smoke test - landing page loads', async ({ page }) => {
   });
   await page.goto('/');
   await expect(page).toHaveTitle(/MiraiGo/i);
-  await expect(page.getByText(/miraigo mvp/i)).toBeVisible();
-  await expect(page.getByText(/what this version does/i)).toBeVisible();
+  await expect(page.getByText(/miraigo multi-agent/i)).toBeVisible();
+  await expect(page.getByText(/plan trips through/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /submit travel intent/i })).toBeVisible();
 });
 

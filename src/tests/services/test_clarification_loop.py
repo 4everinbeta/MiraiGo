@@ -171,6 +171,7 @@ def test_continue_turn_with_preserved_resolved_fields_does_not_reopen_trip_lengt
         query="Warm beach trip in June",
         destination="Honolulu",
         date_range={"start": "2026-06-10", "end": "2026-06-17"},
+        inventory=["stay"],
     )
     _, _, state = service._resolve_request(first_turn)
     assert state.next_question is not None
@@ -294,7 +295,7 @@ def test_budget_recap_edit_does_not_reopen_destination():
 
 def test_early_summer_timeline_does_not_reask_timeline_when_destination_present():
     service = SearchService()
-    request = SearchRequest(query="Trip to Lisbon in early summer")
+    request = SearchRequest(query="Trip to Lisbon in early summer", inventory=["stay"])
 
     _, _, state = service._resolve_request(request)
 
@@ -306,7 +307,7 @@ def test_early_summer_timeline_does_not_reask_timeline_when_destination_present(
 
 def test_timeline_follow_up_accepts_season_answer_without_looping():
     service = SearchService()
-    first_turn = SearchRequest(query="Trip to Lisbon on a moderate budget")
+    first_turn = SearchRequest(query="Trip to Lisbon on a moderate budget", inventory=["stay"])
 
     _, _, state = service._resolve_request(first_turn)
     assert state.next_question is not None
@@ -329,7 +330,7 @@ def test_timeline_follow_up_accepts_season_answer_without_looping():
 
 def test_budget_follow_up_accepts_qualitative_budget_answer():
     service = SearchService()
-    first_turn = SearchRequest(query="Trip to Lisbon in June for 7 days")
+    first_turn = SearchRequest(query="Trip to Lisbon in June for 7 days", inventory=["stay"])
 
     _, _, state = service._resolve_request(first_turn)
     assert state.next_question is not None
@@ -543,3 +544,22 @@ def test_resolve_request_applies_airfare_route_and_loose_timeline_hints_before_f
     assert resolved.date_range is not None
     assert clarification_state.flight_requirements_pending == []
     assert clarification_state.continue_block_reason is None
+
+
+def test_flight_turn_prioritizes_origin_date_prerequisites_before_optional_slots():
+    service = SearchService()
+    request = SearchRequest(
+        query="Need airfare to Lisbon around early summer",
+        inventory=["flight"],
+    )
+
+    resolved, _, clarification_state = service._resolve_request(request)
+
+    assert resolved.destination == "Lisbon"
+    assert resolved.date_range is not None
+    assert clarification_state.flight_requirements_pending == ["origin"]
+    assert clarification_state.continue_block_reason == (
+        "Continue needs origin before flight recommendations can load."
+    )
+    assert clarification_state.next_question is None
+    assert clarification_state.all_critical_slots_resolved is True

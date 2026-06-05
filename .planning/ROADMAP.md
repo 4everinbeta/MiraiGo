@@ -35,7 +35,7 @@
   1. User can view comparable normalized airfare fields (price, currency, stops, duration) across Amadeus and Duffel offers.
   2. User can view freshness and provenance metadata for each airfare offer.
   3. User sees stable airfare rendering/behavior across refreshes and turns because airfare-context fields are deterministic.
-**Plans**: 10 plans
+**Plans**: 14 plans
 Plans:
 - [x] 11-01-PLAN.md — Define backend normalized/provenance airfare contracts and deterministic helper utilities.
 - [x] 11-02-PLAN.md — Wire provider/service normalization with deterministic API payload behavior.
@@ -46,7 +46,11 @@ Plans:
 - [x] 11-07-PLAN.md — Close blocked Continue date-range dead-end with direct remediation controls and deterministic unblock regressions.
 - [x] 11-08-PLAN.md — Close no-flight empty-state clarity gap with deterministic cause-specific remediation guidance.
 - [x] 11-09-PLAN.md — Close airfare intent-capture/progression gap for natural prompts with tests-first deterministic remediation flow.
-- [ ] 11-10-PLAN.md — Close low-detail airfare prompt burden with minimum-detail clarification progression and typed remediation sequencing.
+- [x] 11-10-PLAN.md — Close low-detail airfare prompt burden with minimum-detail clarification progression and typed remediation sequencing.
+- [x] 11-11-PLAN.md — Close backend no-offer/prerequisite contract gaps with typed no-flight guidance and sequencing updates.
+- [x] 11-12-PLAN.md — Close frontend assistant-thread and no-flight clarity gaps with unified conversational rendering.
+- [x] 11-13-PLAN.md — Add deterministic Duffel fallback retrieval and fallback-attempt metadata for no-offer flows.
+- [x] 11-14-PLAN.md — Route empty-flight guidance back into chat-first follow-up flow with shared assistant input path.
 **UI hint**: yes
 
 ### Phase 12: Degraded-Mode Reliability and Clarification Continuity
@@ -77,6 +81,16 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 10. Dual-Provider Realtime Airfare Retrieval | 3/3 | Complete | 2026-04-26 |
-| 11. Airfare Normalization, Provenance, and Contracts | 9/9 | Complete    | 2026-05-24 |
+| 11. Airfare Normalization, Provenance, and Contracts | 14/14 | Complete    | 2026-05-25 |
 | 12. Degraded-Mode Reliability and Clarification Continuity | 1/1 | Complete | 2026-05-24 |
 | 13. Ranking with Live Airfare Context | 0/0 | Not started | - |
+
+### Phase 14: Redesing the frontend flow to use the chat interface exclusively rather than seperate controls. It should provide a conversational flow to gather the information it needs to provide recommendations. Then it should propose some examples that might fit the users request.
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 13
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 14 to break down)

@@ -87,6 +87,24 @@ class EmptyFlightProvider(TravelProvider):
         return []
 
 
+class DuffelEmptyFlightProvider(TravelProvider):
+    provider_name = "duffel"
+    display_name = "Duffel"
+    inventory_types = (InventoryType.FLIGHT,)
+
+    def __init__(self):
+        super().__init__()
+        self.calls = 0
+
+    @property
+    def is_configured(self) -> bool:
+        return True
+
+    async def search(self, request: SearchRequest, inventory_type: InventoryType):
+        self.calls += 1
+        return []
+
+
 class PartialFailureFlightProvider(TravelProvider):
     provider_name = "partialfail"
     display_name = "Partial Failure"
@@ -320,6 +338,71 @@ def test_post_search_warns_when_flight_provider_returns_no_offers():
     payload = response.json()
     assert payload["results"] == []
     assert any("returned no flight offers" in warning for warning in payload["warnings"])
+    assert payload["no_flight_guidance"] is not None
+    assert payload["no_flight_guidance"]["code"] == "no_offers"
+    assert payload["no_flight_guidance"]["provenance_unavailable"] is True
+    assert payload["no_flight_guidance"]["freshness_unavailable"] is True
+    assert payload["no_flight_guidance"]["actions"]
+
+
+def test_post_search_duffel_no_offers_reports_fallback_attempts():
+    duffel = DuffelEmptyFlightProvider()
+    search_service.providers = [duffel]
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Barcelona trip from Denver",
+            "destination": "Barcelona",
+            "origin": "Denver",
+            "inventory": ["flight"],
+            "date_range": {"start": "2026-05-03", "end": "2026-05-08"},
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["results"] == []
+    assert payload["no_flight_guidance"] is not None
+    assert payload["no_flight_guidance"]["code"] == "no_offers"
+    assert payload["no_flight_guidance"]["fallback_attempts"] == [
+        "primary_query",
+        "widen_date_window",
+    ]
+    assert payload["no_flight_guidance"]["follow_up_prompt"] is not None
+    assert duffel.calls == 2
+
+
+def test_post_search_returns_structured_no_flight_guidance_for_provider_outage():
+    search_service.providers = [PartialFailureFlightProvider()]
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Barcelona trip from Denver",
+            "destination": "Barcelona",
+            "origin": "Denver",
+            "inventory": ["flight"],
+            "date_range": {"start": "2026-05-03", "end": "2026-05-08"},
+            "travelers": {"adults": 1, "children": 0, "infants": 0},
+            "stay_filters": {"amenities": []},
+            "flight_filters": {"nonstop": False},
+            "currency_code": "USD",
+            "limit_per_provider": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["results"] == []
+    assert payload["no_flight_guidance"] is not None
+    assert payload["no_flight_guidance"]["code"] == "provider_unavailable"
+    assert payload["no_flight_guidance"]["actions"]
 
 
 def test_post_search_partial_dual_provider_failure_keeps_available_results():
@@ -371,6 +454,7 @@ def test_post_search_partial_dual_provider_failure_keeps_available_results():
         and status["healthy"] is True
         for status in payload["provider_status"]
     )
+    assert payload["no_flight_guidance"] is None
 
 
 def test_post_search_multilingual_destination_and_synonym_keep_clarification_flow():

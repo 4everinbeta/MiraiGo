@@ -203,6 +203,21 @@ class LodgingOptionsGroup(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class NoFlightGuidance(BaseModel):
+    code: Literal[
+        "missing_prerequisites",
+        "provider_unavailable",
+        "no_offers",
+        "general_no_results",
+    ]
+    explanation: str
+    actions: list[str] = Field(default_factory=list)
+    provenance_unavailable: bool = True
+    freshness_unavailable: bool = True
+    fallback_attempts: list[str] = Field(default_factory=list)
+    follow_up_prompt: str | None = None
+
+
 class ClarificationAnswer(BaseModel):
     slot: ClarificationSlot
     answer_text: str | None = Field(default=None, max_length=500)
@@ -243,6 +258,7 @@ class ConstraintUpdates(BaseModel):
 
 
 class SearchRequest(BaseModel):
+    user_id: int | None = Field(default=None)
     query: str | None = Field(default=None, max_length=500)
     inventory: list[InventoryType] = Field(
         default_factory=lambda: [InventoryType.STAY, InventoryType.FLIGHT]
@@ -444,6 +460,7 @@ class SearchResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     results: list[SearchResult] = Field(default_factory=list)
     clarification_state: ClarificationState | None = None
+    no_flight_guidance: NoFlightGuidance | None = None
     recommendation_packages: list[RecommendationPackage] = Field(default_factory=list)
     flight_options: FlightOptionsGroup | None = None
     lodging_options: LodgingOptionsGroup | None = None

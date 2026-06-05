@@ -215,6 +215,22 @@ export interface DegradedState {
   degraded_providers: DegradedProvider[]
 }
 
+export type NoFlightGuidanceCode =
+  | 'missing_prerequisites'
+  | 'provider_unavailable'
+  | 'no_offers'
+  | 'general_no_results'
+
+export interface NoFlightGuidance {
+  code: NoFlightGuidanceCode
+  explanation: string
+  actions: string[]
+  provenance_unavailable: boolean
+  freshness_unavailable: boolean
+  fallback_attempts?: string[]
+  follow_up_prompt?: string | null
+}
+
 export type ConversionStatus = 'native' | 'converted' | 'unavailable'
 export type FreshnessSource = 'provider_quote' | 'provider_fetch' | 'cache_write'
 
@@ -304,6 +320,7 @@ export interface SearchResponse {
   warnings: string[]
   results: SearchResult[]
   clarification_state?: ClarificationState | null
+  no_flight_guidance?: NoFlightGuidance | null
   recommendation_packages?: RecommendationPackage[]
   flight_options?: FlightOptionsGroup | null
   lodging_options?: LodgingOptionsGroup | null

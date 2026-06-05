@@ -28,7 +28,7 @@ test.describe('Error State Regression', () => {
       });
     });
 
-    await page.route('**/api/v1/search', async (route) => {
+    await page.route('**/api/v1/orchestrator/turn', async (route) => {
       await route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -39,7 +39,7 @@ test.describe('Error State Regression', () => {
     await page.goto('/');
     await page.getByLabel(/travel prompt/i).fill('Trip to Barcelona');
     await page.getByRole('button', { name: /submit travel intent/i }).click();
-    await expect(page.getByText(/search request failed/i)).toBeVisible();
+    await expect(page.getByText(/The orchestrator request failed/i)).toBeVisible();
     await checkAccessibility(page, 'Error State Page');
   });
 });

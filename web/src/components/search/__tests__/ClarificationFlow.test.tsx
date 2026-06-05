@@ -219,12 +219,13 @@ describe('ClarificationFlow', () => {
     fireEvent.click(screen.getByRole('button', { name: /continue to recommendations/i }))
 
     expect(onSearch).not.toHaveBeenCalled()
-    expect(
-      screen.getByText('Continue needs origin and date_range before flight recommendations can load.')
-    ).toBeInTheDocument()
+    const assistantThread = screen.getByTestId('assistant-thread')
+    expect(assistantThread).toHaveTextContent(
+      'Continue needs origin and date_range before flight recommendations can load.'
+    )
   })
 
-  it('renders origin remediation controls when continue is blocked by missing origin', () => {
+  it('renders one shared assistant answer input when continue is blocked by missing origin', () => {
     render(
       <SearchForm
         onSearch={jest.fn()}
@@ -237,11 +238,13 @@ describe('ClarificationFlow', () => {
       />
     )
 
-    expect(screen.getByLabelText(/origin/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /submit origin/i })).toBeInTheDocument()
+    expect(screen.getByTestId('assistant-thread')).toBeInTheDocument()
+    expect(screen.getByLabelText(/your answer/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /submit answer/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /submit origin/i })).not.toBeInTheDocument()
   })
 
-  it('submits origin remediation with constraint_updates.origin while continue stays blocked', () => {
+  it('submits origin remediation with constraint_updates.origin through shared answer flow', () => {
     const onSearch = jest.fn()
     render(
       <SearchForm
@@ -265,10 +268,10 @@ describe('ClarificationFlow', () => {
     const continueButton = screen.getByRole('button', { name: /continue to recommendations/i })
     expect(continueButton).toBeDisabled()
 
-    fireEvent.change(screen.getByLabelText(/origin/i), {
+    fireEvent.change(screen.getByLabelText(/your answer/i), {
       target: { value: 'Denver' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /submit origin/i }))
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
 
     expect(onSearch).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -281,7 +284,7 @@ describe('ClarificationFlow', () => {
     expect(continueButton).toBeDisabled()
   })
 
-  it('renders date-range remediation controls when continue is blocked by missing date_range', () => {
+  it('uses shared answer flow for date_range remediation (no separate date forms)', () => {
     render(
       <SearchForm
         onSearch={jest.fn()}
@@ -294,12 +297,14 @@ describe('ClarificationFlow', () => {
       />
     )
 
-    expect(screen.getByLabelText(/start date/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/end date/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /submit date range/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/your answer/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /submit answer/i })).toBeInTheDocument()
+    expect(screen.queryByLabelText(/start date/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/end date/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /submit date range/i })).not.toBeInTheDocument()
   })
 
-  it('submits date-range remediation with constraint_updates.date_range shape', () => {
+  it('submits date-range remediation through shared answer parsing', () => {
     const onSearch = jest.fn()
     render(
       <SearchForm
@@ -320,13 +325,10 @@ describe('ClarificationFlow', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(/start date/i), {
-      target: { value: '2026-06-01' },
+    fireEvent.change(screen.getByLabelText(/your answer/i), {
+      target: { value: '2026-06-01 to 2026-06-08' },
     })
-    fireEvent.change(screen.getByLabelText(/end date/i), {
-      target: { value: '2026-06-08' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /submit date range/i }))
+    fireEvent.click(screen.getByRole('button', { name: /submit answer/i }))
 
     expect(onSearch).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -341,7 +343,7 @@ describe('ClarificationFlow', () => {
     )
   })
 
-  it('renders origin and date-range remediation controls together when both requirements are pending', () => {
+  it('keeps one assistant answer flow even when origin and date_range are both pending', () => {
     render(
       <SearchForm
         onSearch={jest.fn()}
@@ -354,11 +356,9 @@ describe('ClarificationFlow', () => {
       />
     )
 
-    expect(screen.getByLabelText(/origin/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/start date/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/end date/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /submit origin/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /submit date range/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/your answer/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /submit origin/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /submit date range/i })).not.toBeInTheDocument()
   })
 
   it('shows explicit airfare remediation guidance mapped to each pending requirement key', () => {

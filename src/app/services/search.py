@@ -9,14 +9,15 @@ import logging
 import re
 import time
 import uuid
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, field
+from datetime import date, timedelta
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.app.core.config import settings
 from src.app.db.redis import redis_client
 from src.app.models.search import ProviderRun, SearchRun
+from src.app.models.user_session import SearchHistory, UserPreference
 from src.app.nlp.intent import extract_budget_range, extract_intent, extract_route_hints
 from src.app.providers import get_provider_registry
 from src.app.providers.base import ProviderError, TravelProvider
@@ -33,6 +34,7 @@ from src.app.schemas.search import (
     DegradedState,
     FlightSearchResult,
     InventoryType,
+    NoFlightGuidance,
     ProviderStatus,
     RecommendationPackage,
     SearchDateRange,
@@ -53,6 +55,7 @@ from src.app.services.clarification import (
     get_missing_flight_prerequisites,
     make_history_entry,
     normalize_destination_candidates,
+    prioritize_flight_prerequisites_for_discovery,
     reopen_related_slots,
     resolve_destination_selection_mode,
     select_next_question,
@@ -72,6 +75,7 @@ class ProviderExecution:
     result_count: int
     results: list[SearchResult]
     error_message: str | None = None
+    fallback_attempts: list[str] = field(default_factory=list)
 
 
 class SearchService:
@@ -115,6 +119,13 @@ class SearchService:
                 warnings=self._dedupe(warnings),
                 results=[],
                 clarification_state=clarification_state,
+                no_flight_guidance=self._build_no_flight_guidance(
+                    request=resolved_request,
+                    clarification_state=clarification_state,
+                    executions=prefetch_executions,
+                    warnings=self._dedupe(warnings),
+                    results=[],
+                ),
             )
 
         visible_inventory = list(resolved_request.inventory)
@@ -172,6 +183,13 @@ class SearchService:
             warnings=self._dedupe(warnings),
             results=ranked_results,
             clarification_state=clarification_state,
+            no_flight_guidance=self._build_no_flight_guidance(
+                request=resolved_request,
+                clarification_state=clarification_state,
+                executions=all_executions,
+                warnings=self._dedupe(warnings),
+                results=ranked_results,
+            ),
             recommendation_packages=recommendation_packages,
         )
         self._cache_response(resolved_request, response)
@@ -221,6 +239,10 @@ class SearchService:
             if InventoryType.FLIGHT in request.inventory
             else []
         )
+        prioritize_flight_prerequisites_for_discovery(
+            slot_states=slot_states,
+            flight_requirements_pending=flight_requirements_pending,
+        )
 
         clarification_state = build_clarification_state(
             slot_states,
@@ -249,6 +271,100 @@ class SearchService:
             }
         )
         return request.model_copy(update={"clarification_state": clarification_state}), warnings, clarification_state
+
+    def _build_no_flight_guidance(
+        self,
+        *,
+        request: SearchRequest,
+        clarification_state: ClarificationState | None,
+        executions: list[ProviderExecution],
+        warnings: list[str],
+        results: list[SearchResult],
+    ) -> NoFlightGuidance | None:
+        if InventoryType.FLIGHT not in request.inventory:
+            return None
+        has_flights = any(isinstance(result, FlightSearchResult) for result in results)
+        if has_flights:
+            return None
+
+        pending_requirements = clarification_state.flight_requirements_pending if clarification_state else []
+        if pending_requirements:
+            first_requirement = pending_requirements[0]
+            follow_up_prompt = (
+                "What airport or city are you flying from?"
+                if first_requirement == "origin"
+                else "What travel dates should I use? You can reply YYYY-MM-DD or YYYY-MM-DD to YYYY-MM-DD."
+            )
+            return NoFlightGuidance(
+                code="missing_prerequisites",
+                explanation=(
+                    "Flight prerequisites are still missing, so live airfare provenance "
+                    "and freshness details are not available yet."
+                ),
+                actions=[
+                    f"Add the missing prerequisites: {', '.join(pending_requirements)}.",
+                    "Continue after updating those details to fetch live airfare offers.",
+                ],
+                follow_up_prompt=follow_up_prompt,
+            )
+
+        flight_executions = [
+            execution
+            for execution in executions
+            if execution.inventory_type == InventoryType.FLIGHT
+        ]
+        has_execution_error = any(execution.error_message for execution in flight_executions)
+        configured_flight_empty = any(
+            execution.configured and not execution.error_message and execution.result_count == 0
+            for execution in flight_executions
+        )
+        fallback_attempts: list[str] = []
+        for execution in flight_executions:
+            for attempt in execution.fallback_attempts:
+                if attempt not in fallback_attempts:
+                    fallback_attempts.append(attempt)
+
+        if has_execution_error:
+            return NoFlightGuidance(
+                code="provider_unavailable",
+                explanation=(
+                    "One or more flight providers are currently unavailable, so airfare "
+                    "provenance and freshness details cannot be shown right now."
+                ),
+                actions=[
+                    "Retry this search in a few minutes.",
+                    "Use stay recommendations now and rerun flight search after provider recovery.",
+                ],
+                follow_up_prompt="Share alternate dates or nearby airports and I can retry airfare search.",
+            )
+
+        if configured_flight_empty:
+            return NoFlightGuidance(
+                code="no_offers",
+                explanation=(
+                    "Providers returned no airfare offers for this route/date combination, "
+                    "so provenance and freshness metadata are unavailable for this search."
+                ),
+                actions=[
+                    "Try nearby airports or wider date ranges.",
+                    "Relax nonstop, time, or budget filters and search again.",
+                ],
+                fallback_attempts=fallback_attempts,
+                follow_up_prompt="Tell me nearby airports or alternate dates and I will retry now.",
+            )
+
+        return NoFlightGuidance(
+            code="general_no_results",
+            explanation=(
+                "No live airfare results are currently available for this request, so "
+                "provenance and freshness details cannot be displayed yet."
+            ),
+            actions=[
+                "Broaden travel constraints and retry the search.",
+                "Confirm at least one live flight provider is configured.",
+            ],
+            follow_up_prompt="Tell me what to loosen first: dates, airports, or nonstop preference.",
+        )
 
     def _apply_intent_signals(self, request: SearchRequest, intent: dict) -> SearchRequest:
         if not request.query:
@@ -1076,6 +1192,23 @@ class SearchService:
                 provider.search(request, inventory_type),
                 timeout=deadline_seconds,
             )
+            fallback_attempts: list[str] = []
+            if (
+                inventory_type == InventoryType.FLIGHT
+                and provider.provider_name == "duffel"
+                and not results
+            ):
+                fallback_attempts = ["primary_query"]
+                for label, fallback_request in self._duffel_fallback_requests(request):
+                    fallback_attempts.append(label)
+                    fallback_results = await asyncio.wait_for(
+                        provider.search(fallback_request, inventory_type),
+                        timeout=deadline_seconds,
+                    )
+                    if fallback_results:
+                        results = fallback_results
+                        request = fallback_request
+                        break
             self._cache_provider_results(provider, request, inventory_type, results)
             return ProviderExecution(
                 provider=provider,
@@ -1085,6 +1218,7 @@ class SearchService:
                 duration_ms=int((time.perf_counter() - start) * 1000),
                 result_count=len(results),
                 results=results,
+                fallback_attempts=fallback_attempts,
             )
         except TimeoutError:
             return ProviderExecution(
@@ -1109,6 +1243,42 @@ class SearchService:
                 results=[],
                 error_message=str(exc),
             )
+
+    def _duffel_fallback_requests(self, request: SearchRequest) -> list[tuple[str, SearchRequest]]:
+        fallbacks: list[tuple[str, SearchRequest]] = []
+        if request.flight_filters.nonstop:
+            fallbacks.append(
+                (
+                    "relax_nonstop_filter",
+                    request.model_copy(
+                        update={
+                            "flight_filters": request.flight_filters.model_copy(
+                                update={"nonstop": False}
+                            )
+                        }
+                    ),
+                )
+            )
+        if request.date_range and request.date_range.start:
+            widened_start = request.date_range.start - timedelta(days=2)
+            widened_end = (
+                request.date_range.end + timedelta(days=2)
+                if request.date_range.end
+                else request.date_range.start + timedelta(days=2)
+            )
+            fallbacks.append(
+                (
+                    "widen_date_window",
+                    request.model_copy(
+                        update={
+                            "date_range": request.date_range.model_copy(
+                                update={"start": widened_start, "end": widened_end}
+                            )
+                        }
+                    ),
+                )
+            )
+        return fallbacks
 
     def _provider_deadline_seconds(
         self, provider: TravelProvider, inventory_type: InventoryType
@@ -1606,6 +1776,28 @@ class SearchService:
                         error_message=execution.error_message,
                     )
                 )
+            # Record user search history and upsert user preference if user_id is provided
+            if getattr(request, "user_id", None) is not None:
+                search_history = SearchHistory(
+                    user_id=request.user_id,
+                    search_id=response.search_id,
+                    query=request.query or request.destination or "Discovery Search",
+                )
+                db.add(search_history)
+                
+                # Check for existing user preference
+                pref = db.query(UserPreference).filter(UserPreference.user_id == request.user_id).first()
+                if not pref:
+                    pref = UserPreference(user_id=request.user_id)
+                    db.add(pref)
+                
+                if request.origin:
+                    pref.default_origin = request.origin
+                if request.inventory:
+                    pref.preferred_inventory = [item.value for item in request.inventory]
+                if request.currency_code:
+                    pref.currency = request.currency_code
+
             db.commit()
         except SQLAlchemyError:
             db.rollback()

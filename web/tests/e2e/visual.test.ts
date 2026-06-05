@@ -27,8 +27,8 @@ test.describe('Visual Regression', () => {
       });
     });
     await page.goto('/');
-    await expect(page.getByText(/miraigo mvp/i)).toBeVisible();
-    await expect(page.getByText(/what this version does/i)).toBeVisible();
+    await expect(page.getByText(/miraigo multi-agent/i)).toBeVisible();
+    await expect(page.getByText(/plan trips through/i)).toBeVisible();
   });
 
   test('results layout renders both inventories', async ({ page }) => {
@@ -57,63 +57,74 @@ test.describe('Visual Regression', () => {
       });
     });
 
-    await page.route('**/api/v1/search', async (route) => {
+    await page.route('**/api/v1/orchestrator/turn', async (route) => {
       const json = {
-        search_id: 'search-visual',
-        query: 'Barcelona trip',
-        requested_inventory: ['stay', 'flight'],
-        applied_filters: {
-          destination: 'Barcelona',
-          origin: 'Denver',
-          date_range: { start: '2026-05-03', end: '2026-05-08' },
-          travelers: { adults: 2, children: 0, infants: 0 },
-          stay_filters: { amenities: ['wifi'] },
-          flight_filters: { nonstop: false },
-        },
-        provider_status: [],
-        warnings: [],
-        results: [
-          {
-            inventory_type: 'stay',
-            provider: 'expedia',
-            provider_label: 'Expedia',
-            title: 'Hotels in Barcelona',
-            description: 'Open Expedia to see live hotel inventory and current partner pricing.',
-            total_price: 0,
-            currency: 'USD',
-            redirect_url: 'https://example.com/stay',
-            deep_link_label: 'View stays on Expedia',
-            score: 50,
-            price_known: false,
-            price_label: 'Check live rates on Expedia',
-            location_label: 'Barcelona',
-            amenities: ['wifi'],
-            nightly_price: null,
-            check_in: '2026-05-03',
-            check_out: '2026-05-08',
+        session_id: 'session-visual',
+        response_type: 'packages',
+        markdown: 'Here is your travel suggestion packages.',
+        open_questions: [],
+        candidate_destinations: [],
+        packages: [],
+        itineraries: [],
+        disclaimers: [],
+        executed_agents: ['presenter'],
+        search_response: {
+          search_id: 'search-visual',
+          query: 'Barcelona trip',
+          requested_inventory: ['stay', 'flight'],
+          applied_filters: {
+            destination: 'Barcelona',
+            origin: 'Denver',
+            date_range: { start: '2026-05-03', end: '2026-05-08' },
+            travelers: { adults: 2, children: 0, infants: 0 },
+            stay_filters: { amenities: ['wifi'] },
+            flight_filters: { nonstop: false },
           },
-          {
-            inventory_type: 'flight',
-            provider: 'duffel',
-            provider_label: 'Duffel',
-            title: 'DEN to BCN',
-            description: 'Flight option',
-            total_price: 640,
-            currency: 'USD',
-            redirect_url: null,
-            deep_link_label: null,
-            score: 90,
-            price_known: true,
-            price_label: null,
-            origin_code: 'DEN',
-            destination_code: 'BCN',
-            departure_at: '2026-05-03T09:30:00',
-            arrival_at: '2026-05-03T20:15:00',
-            carrier_codes: ['TP'],
-            stops: 1,
-            duration: 'PT10H45M',
-          },
-        ],
+          provider_status: [],
+          warnings: [],
+          results: [
+            {
+              inventory_type: 'stay',
+              provider: 'expedia',
+              provider_label: 'Expedia',
+              title: 'Hotels in Barcelona',
+              description: 'Open Expedia to see live hotel inventory and current partner pricing.',
+              total_price: 0,
+              currency: 'USD',
+              redirect_url: 'https://example.com/stay',
+              deep_link_label: 'View stays on Expedia',
+              score: 50,
+              price_known: false,
+              price_label: 'Check live rates on Expedia',
+              location_label: 'Barcelona',
+              amenities: ['wifi'],
+              nightly_price: null,
+              check_in: '2026-05-03',
+              check_out: '2026-05-08',
+            },
+            {
+              inventory_type: 'flight',
+              provider: 'duffel',
+              provider_label: 'Duffel',
+              title: 'DEN to BCN',
+              description: 'Flight option',
+              total_price: 640,
+              currency: 'USD',
+              redirect_url: null,
+              deep_link_label: null,
+              score: 90,
+              price_known: true,
+              price_label: null,
+              origin_code: 'DEN',
+              destination_code: 'BCN',
+              departure_at: '2026-05-03T09:30:00',
+              arrival_at: '2026-05-03T20:15:00',
+              carrier_codes: ['TP'],
+              stops: 1,
+              duration: 'PT10H45M',
+            },
+          ],
+        }
       };
       await route.fulfill({ json });
     });
