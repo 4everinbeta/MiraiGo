@@ -16,8 +16,8 @@ This plan executes the robust integration, data mapping refinement, and error ha
 ## Phase 2: Error Handling, Timeouts, and Fallbacks
 
 * **TDD - Timeout and Configuration Fallbacks**
-  * - [ ] Task: Write failing pytest unit/integration tests in `src/tests/providers/test_duffel.py` asserting that request timeouts trigger retries and that missing configuration/credentials gracefully transition search state to degraded with appropriate `no_flight_guidance`.
-  * - [ ] Task: Implement HTTP retry logic, credentials validation, and health checks reporting in the Duffel provider. Verify that all tests pass.
+  * - [x] Task: Write failing pytest unit/integration tests in `src/tests/providers/test_duffel.py` asserting that request timeouts trigger retries and that missing configuration/credentials gracefully transition search state to degraded with appropriate `no_flight_guidance`. [c1401e1]
+  * - [x] Task: Implement HTTP retry logic, credentials validation, and health checks reporting in the Duffel provider. Verify that all tests pass. [c1401e1]
 
 * **Phase Verification**
   * - [ ] Task: Conductor - User Manual Verification 'Phase 2: Error Handling, Timeouts, and Fallbacks' (Protocol in workflow.md)
