@@ -81,6 +81,11 @@ export default function SearchForm({
   assistantPromptOverride = null,
   chatHistory = [],
 }: SearchFormProps) {
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   const [query, setQuery] = useState('')
   const [editingSlot, setEditingSlot] = useState<ClarificationSlot | null>(null)
   const [editedValue, setEditedValue] = useState('')
@@ -464,7 +469,9 @@ export default function SearchForm({
                     )}
                   </div>
                   <span className="text-[10px] text-muted-foreground block px-1">
-                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {isMounted && msg.timestamp
+                      ? msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : ''}
                   </span>
                 </div>
               </div>
