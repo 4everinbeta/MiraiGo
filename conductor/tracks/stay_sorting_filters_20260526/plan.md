@@ -20,8 +20,15 @@ This plan executes the TDD development, client-side implementation, and visual p
 ## Phase 2: Premium Visual Polish & Micro-animations
 
 * **E2E & Aesthetics (Red/Green/Refactor)**
-  * - [ ] Task: Create a new E2E spec under Playwright in `web/tests/e2e/search.test.ts` (or update it) to write a failing test that simulates adjusting the price slider and toggling amenities filters, asserting that the stays list updates visually.
+  * - [~] Task: Create a new E2E spec under Playwright in `web/tests/e2e/search.test.ts` (or update it) to write a failing test that simulates adjusting the price slider and toggling amenities filters, asserting that the stays list updates visually.
   * - [ ] Task: Polish the filter panel layout with smooth Tailwind animations/transitions on entry/exit, apply glassmorphic backdrop-blur overlays, and verify that all text/badge elements strictly meet the WCAG 2 AA contrast ratio target (4.5:1). Confirm Playwright E2E tests pass.
 
 * **Phase Verification**
   * - [ ] Task: Conductor - User Manual Verification 'Phase 2: Premium Visual Polish & Micro-animations' (Protocol in workflow.md)
+
+---
+
+## Phase: Review Fixes
+
+* **Review Fixes**
+  * - [x] Task: Apply review suggestions [ac8a585]
