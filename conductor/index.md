@@ -18,6 +18,3 @@ Welcome to the Conductor management hub for MiraiGo. This file provides links to
 Tracks represent distinct units of work (e.g. features, bug fixes, or chores) planned and executed by Conductor.
 
 ---
-
-- [ ] **Track: Interactive Stay Value Sorting and Filters (ratings, absolute price, key stays amenities)**
-*Link: [./tracks/stay_sorting_filters_20260526/](./tracks/stay_sorting_filters_20260526/)*
