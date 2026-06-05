@@ -190,6 +190,27 @@ class DuffelFlightsProvider(TravelProvider):
         if request.date_range and request.date_range.end:
             trip_label = f"{trip_label} roundtrip"
 
+        from src.app.services.airfare_normalization import normalize_airfare_offer
+        import time
+
+        norm = normalize_airfare_offer(
+            provider=self.provider_name,
+            provider_offer_id=offer.get("id"),
+            origin_code=first_segment.get("origin", {}).get("iata_code", origin_code),
+            destination_code=last_segment.get("destination", {}).get(
+                "iata_code", destination_code
+            ),
+            departure_at=first_segment.get("departing_at", ""),
+            arrival_at=last_segment.get("arriving_at", ""),
+            total_price=total_price,
+            provider_currency=total_currency,
+            requested_currency=request.currency_code,
+            duration=first_slice.get("duration"),
+            stops=slice_stops,
+            fetched_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            source_payload_ref=offer.get("id"),
+        )
+
         return FlightSearchResult(
             inventory_type=InventoryType.FLIGHT,
             provider=self.provider_name,
@@ -211,6 +232,15 @@ class DuffelFlightsProvider(TravelProvider):
             stops=slice_stops,
             duration=first_slice.get("duration"),
             provider_offer_id=offer.get("id"),
+            price_minor=norm["price_minor"],
+            currency_code=norm["currency_code"],
+            duration_minutes=norm["duration_minutes"],
+            stops_count=norm["stops_count"],
+            normalized_offer_id=norm["normalized_offer_id"],
+            missing_fields=norm["missing_fields"],
+            conversion_status=norm["conversion_status"],
+            airfare_provenance=norm["airfare_provenance"],
+            airfare_freshness=norm["airfare_freshness"],
         )
 
     def _flight_score(self, price: float, stops: int) -> float:

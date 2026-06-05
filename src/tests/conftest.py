@@ -14,6 +14,8 @@ import pytest
 from src.app.db.session import SessionLocal, engine
 from src.app.models.base import Base
 from src.app.models.search import ProviderRun, SearchRun
+from src.app.models.user import User
+from src.app.models.user_session import SearchHistory, UserPreference
 
 
 class FakeRedis:
