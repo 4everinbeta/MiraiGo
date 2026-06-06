@@ -17,8 +17,4 @@ Welcome to the Conductor management hub for MiraiGo. This file provides links to
 ## 3. Development Tracks
 Tracks represent distinct units of work (e.g. features, bug fixes, or chores) planned and executed by Conductor.
 
----
-
-- [x] **Track: Expedia Stays Integration**
-*Link: [./tracks/expedia_stays_20260606/](./tracks/expedia_stays_20260606/)*
 
