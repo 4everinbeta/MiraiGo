@@ -13,7 +13,7 @@ MiraiGo Travel Discovery is an interactive, multi-agent travel discovery website
 ## 3. Core Features & User Flows
 * **Conversational Clarification**: A guided intake form that accepts free-form text, parses slots, and conversationally asks targeted single-question follow-ups for ambiguous slots (e.g., budget, trip length, origin).
 * **Accumulated State & Recap**: Interactive chip lists summarizing extracted constraints, permitting real-time manual slot edits and direct "Continue to Recommendations" bypasses once critical inputs are resolved.
-* **Premium Stays & Flights Dashboard**: Rich visual cards showing real-time flight details (Duffel integration) and stay details (Expedia redirect and Booking.com scraper) complete with rating badges, amenity tags, and computed total pricing.
+* **Premium Stays & Flights Dashboard**: Rich visual cards showing real-time flight details (Duffel integration) and stay details (synthesized Expedia properties and Booking.com scraper) complete with rating badges, amenity tags, and computed total pricing.
 * **User Search Persistence**: Telemetric tracking that records search runs, discovery preferences, and automates profile settings in the database.
 
 ## 4. Technology Stack & Architecture

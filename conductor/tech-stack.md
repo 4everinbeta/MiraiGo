@@ -24,7 +24,7 @@ This document details the exact languages, frameworks, databases, and third-part
 
 ## 4. Third-Party API Integrations
 * **Duffel API**: Live self-service flight searches and flight offer parsing.
-* **Expedia & Booking.com**: Redirect-only partner referrals for stays.
+* **Expedia & Booking.com**: Synthesized and scraped accommodation results.
 
 ## 5. Testing & Quality Assurance
 * **Pytest & Pytest-Cov**: Automated unit and integration testing suite for backend providers, services, and telemetry.
