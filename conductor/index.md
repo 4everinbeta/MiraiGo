@@ -17,4 +17,9 @@ Welcome to the Conductor management hub for MiraiGo. This file provides links to
 ## 3. Development Tracks
 Tracks represent distinct units of work (e.g. features, bug fixes, or chores) planned and executed by Conductor.
 
+---
+
+- [ ] **Track: Improved intent parsing**
+*Link: [./tracks/intent_parsing_20260606/](./tracks/intent_parsing_20260606/)*
+
 
