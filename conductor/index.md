@@ -19,7 +19,7 @@ Tracks represent distinct units of work (e.g. features, bug fixes, or chores) pl
 
 ---
 
-- [~] **Track: Improved intent parsing**
+- [x] **Track: Improved intent parsing**
 *Link: [./tracks/intent_parsing_20260606/](./tracks/intent_parsing_20260606/)*
 
 
