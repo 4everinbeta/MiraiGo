@@ -19,5 +19,5 @@ Tracks represent distinct units of work (e.g. features, bug fixes, or chores) pl
 
 ---
 
-- [~] **Track: Duffel Flight Provider Integration**
+- [x] **Track: Duffel Flight Provider Integration**
 *Link: [./tracks/duffel_integration_20260605/](./tracks/duffel_integration_20260605/)*
