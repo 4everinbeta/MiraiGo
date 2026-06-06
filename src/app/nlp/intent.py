@@ -573,7 +573,12 @@ def _extract_destination(query: str, query_lower: str, origin_hint: str | None =
         candidate_lower = candidate.lower()
         if origin_hint and candidate_lower in origin_hint.lower():
             return True
-        if re.search(r'\bfrom\s+(?:[a-z\s.-]{0,15}\s+)?' + re.escape(candidate_lower) + r'\b', query_lower):
+        pattern = (
+            r'\bfrom\s+(?:[a-z\s.-]{0,15}\s+)?'
+            + re.escape(candidate_lower)
+            + r'\b'
+        )
+        if re.search(pattern, query_lower):
             return True
         return False
 
@@ -642,7 +647,12 @@ def extract_intent(query: str) -> Dict[str, Any]:
     query_lower = _normalize_query(query)
     normalized_query = _strip_accents(query)
     route_hints = extract_route_hints(normalized_query)
-    location = route_hints["destination"] or _extract_destination(normalized_query, query_lower, route_hints["origin"])
+    location = (
+        route_hints["destination"]
+        or _extract_destination(
+            normalized_query, query_lower, route_hints["origin"]
+        )
+    )
 
     # Qualities Extraction
     found_qualities = _extract_qualities(query_lower)
@@ -790,8 +800,13 @@ def extract_route_hints(query: str) -> dict[str, str | None]:
         return {"origin": origin, "destination": destination}
 
     # Standalone origin match (from <location>)
+    standalone_pattern = (
+        r"\bfrom\b\s+([A-Za-z][A-Za-z\s.'-]*?)"
+        r"(?:$|\s+\b(?:for|in|on|with|between|during|around|next|this|"
+        r"maybe|sometime|leaving|departing|to)\b)"
+    )
     standalone_origin_match = re.search(
-        r"\bfrom\b\s+([A-Za-z][A-Za-z\s.'-]*?)(?:$|\s+\b(?:for|in|on|with|between|during|around|next|this|maybe|sometime|leaving|departing|to)\b)",
+        standalone_pattern,
         query,
         re.IGNORECASE,
     )
