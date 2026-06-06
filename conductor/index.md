@@ -19,6 +19,6 @@ Tracks represent distinct units of work (e.g. features, bug fixes, or chores) pl
 
 ---
 
-- [ ] **Track: Expedia Stays Integration**
+- [~] **Track: Expedia Stays Integration**
 *Link: [./tracks/expedia_stays_20260606/](./tracks/expedia_stays_20260606/)*
 
