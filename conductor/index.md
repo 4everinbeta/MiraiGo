@@ -17,7 +17,3 @@ Welcome to the Conductor management hub for MiraiGo. This file provides links to
 ## 3. Development Tracks
 Tracks represent distinct units of work (e.g. features, bug fixes, or chores) planned and executed by Conductor.
 
----
-
-- [x] **Track: Duffel Flight Provider Integration**
-*Link: [./tracks/duffel_integration_20260605/](./tracks/duffel_integration_20260605/)*
