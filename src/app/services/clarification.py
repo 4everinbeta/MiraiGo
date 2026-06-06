@@ -82,6 +82,9 @@ _CURATED_DESTINATIONS: tuple[tuple[str, str, tuple[str, ...], float], ...] = (
     ("maui-us", "Maui", ("warm", "beach", "romantic"), 0.88),
     ("mallorca-es", "Mallorca", ("warm", "beach", "culture"), 0.86),
     ("algarve-pt", "Algarve", ("warm", "beach", "relaxed"), 0.84),
+    ("miami-us", "Miami", ("warm", "beach"), 0.85),
+    ("hawaii-us", "Hawaii", ("warm", "beach"), 0.85),
+    ("bahamas", "The Bahamas", ("warm", "beach"), 0.85),
 )
 
 

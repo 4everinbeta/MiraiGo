@@ -166,6 +166,14 @@ NON_DESTINATION_TOKENS = {
     "vacation",
     "holiday",
     "getaway",
+    "flight",
+    "flights",
+    "stay",
+    "stays",
+    "hotel",
+    "hotels",
+    "accommodation",
+    "accommodations",
 }
 
 
@@ -321,6 +329,34 @@ def _extract_timeline(query_lower: str, date_range: dict[str, str] | None, found
 
     if found_dates:
         first_date = found_dates[0]
+        first_date_lower = first_date.lower()
+        if first_date_lower in MONTH_NAMES:
+            month_idx = MONTH_NAMES.index(first_date_lower) + 1
+            today = date.today()
+            year = today.year
+            if month_idx < today.month:
+                year += 1
+            start_date = date(year, month_idx, 1)
+            if month_idx == 12:
+                end_date = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                end_date = date(year, month_idx + 1, 1) - timedelta(days=1)
+            
+            normalized = {
+                "window": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+                "precision": "month",
+                "source_text": first_date,
+            }
+            return normalized, _build_slot_metadata(
+                value=normalized,
+                confidence=0.8,
+                ambiguous=False,
+                source_text=first_date,
+            )
+
         normalized = {
             "window": {"start": first_date, "end": None},
             "precision": "text",
@@ -528,10 +564,18 @@ def _is_destination_candidate(value: str) -> bool:
     return True
 
 
-def _extract_destination(query: str, query_lower: str) -> str | None:
+def _extract_destination(query: str, query_lower: str, origin_hint: str | None = None) -> str | None:
     route_hints = extract_route_hints(query)
     if route_hints["destination"]:
         return route_hints["destination"]
+
+    def is_invalid_destination(candidate: str) -> bool:
+        candidate_lower = candidate.lower()
+        if origin_hint and candidate_lower in origin_hint.lower():
+            return True
+        if re.search(r'\bfrom\s+(?:[a-z\s.-]{0,15}\s+)?' + re.escape(candidate_lower) + r'\b', query_lower):
+            return True
+        return False
 
     route_match = re.search(
         r"\bfrom\b\s+([A-Za-z][A-Za-z\s.-]*?)\s+\bto\b\s+([A-Za-z][A-Za-z\s.-]*?)(?:\s+\b(?:for|in|on|with|between|during|and|con)\b|$)",
@@ -575,12 +619,20 @@ def _extract_destination(query: str, query_lower: str) -> str | None:
 
     for city in COMMON_CITIES:
         if city.lower() in query_lower:
+            if is_invalid_destination(city):
+                continue
             return city
 
     words = re.findall(r'\b[A-Z][a-z]+\b', query)
-    stop_words = {"I", "Looking", "Find", "Searching", "Need", "Plan", "Trip", "Help"}
+    stop_words = {
+        "I", "Looking", "Find", "Searching", "Need", "Plan", "Trip", "Help",
+        "Flight", "Flights", "Stay", "Stays", "Hotel", "Hotels",
+        "Accommodation", "Accommodations", "Vacation", "Vacations"
+    }
     for word in words:
         if word not in stop_words and word not in DATES and _is_destination_candidate(word):
+            if is_invalid_destination(word):
+                continue
             return word
 
     return None
@@ -590,7 +642,7 @@ def extract_intent(query: str) -> Dict[str, Any]:
     query_lower = _normalize_query(query)
     normalized_query = _strip_accents(query)
     route_hints = extract_route_hints(normalized_query)
-    location = route_hints["destination"] or _extract_destination(normalized_query, query_lower)
+    location = route_hints["destination"] or _extract_destination(normalized_query, query_lower, route_hints["origin"])
 
     # Qualities Extraction
     found_qualities = _extract_qualities(query_lower)
@@ -671,6 +723,9 @@ def extract_intent(query: str) -> Dict[str, Any]:
         "weather": weather_metadata,
     }
 
+    # Travelers count extraction
+    travelers = extract_party_size(query)
+
     return {
         "location": location,
         "qualities": found_qualities,
@@ -689,6 +744,7 @@ def extract_intent(query: str) -> Dict[str, Any]:
         "slot_metadata": slot_metadata,
         "origin_hint": route_hints["origin"],
         "original_query": query,
+        "travelers": travelers,
     }
 
 
@@ -732,6 +788,21 @@ def extract_route_hints(query: str) -> dict[str, str | None]:
             else None
         )
         return {"origin": origin, "destination": destination}
+
+    # Standalone origin match (from <location>)
+    standalone_origin_match = re.search(
+        r"\bfrom\b\s+([A-Za-z][A-Za-z\s.'-]*?)(?:$|\s+\b(?:for|in|on|with|between|during|around|next|this|maybe|sometime|leaving|departing|to)\b)",
+        query,
+        re.IGNORECASE,
+    )
+    if standalone_origin_match:
+        origin_candidate = _trim_location_fragment(standalone_origin_match.group(1))
+        origin = (
+            _normalize_location_candidate(origin_candidate)
+            if _is_destination_candidate(origin_candidate)
+            else None
+        )
+        return {"origin": origin, "destination": None}
 
     return {"origin": None, "destination": None}
 

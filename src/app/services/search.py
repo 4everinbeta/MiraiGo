@@ -398,6 +398,18 @@ class SearchService:
             if parsed_date_range:
                 updates["date_range"] = parsed_date_range
 
+        if intent.get("travelers"):
+            updates["travelers"] = intent["travelers"]
+
+        duration_days = intent.get("duration_days")
+        effective_date_range = updates.get("date_range") or request.date_range
+        if duration_days and effective_date_range:
+            adjusted_end = effective_date_range.start + timedelta(days=duration_days)
+            updates["date_range"] = SearchDateRange(
+                start=effective_date_range.start,
+                end=adjusted_end
+            )
+
         if not updates:
             return request
         return request.model_copy(update=updates)
@@ -1546,7 +1558,7 @@ class SearchService:
         lowered = request.query.lower()
         pool: list[str] = []
         if "beach" in lowered or "warm" in lowered:
-            pool.extend(["Lisbon", "Mallorca", "Cancun"])
+            pool.extend(["Lisbon", "Mallorca", "Cancun", "Miami", "Hawaii", "The Bahamas"])
         if "culture" in lowered or "city" in lowered:
             pool.extend(["Barcelona", "Lisbon", "Kyoto"])
         if "adventure" in lowered:
